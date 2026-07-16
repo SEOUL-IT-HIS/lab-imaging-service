@@ -26,7 +26,9 @@ public class ImageOrderController {
 
     private final ImageOrderService imageOrderService;
 
-    @Operation(summary = "영상 오더 접수", description = "외부 시스템(외래/병동/응급)에서 발생한 영상 오더를 접수하고, 영상검사접수(IMAGE_RECEPTION)를 함께 생성한다.")
+    @Operation(summary = "영상 오더 접수", description = "외부 시스템에서 발생한 영상 오더를 접수하고, 영상검사접수(IMAGE_RECEPTION)를 함께 생성한다. "
+            + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "
+            + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
     @PostMapping("/image-orders")
     public ResponseEntity<ApiResponse<ImageOrderCreateResponseDto>> createOrder(
             @Valid @RequestBody ImageOrderCreateRequestDto request) {

@@ -32,6 +32,12 @@ public class ImageOrderCreateRequestDto {
     @Schema(description = "외부시스템 오더 원본 번호 (IMAGE_ORDER.image_order_no, UNIQUE)", example = "EXT-IO-20260715-001", requiredMode = Schema.RequiredMode.REQUIRED)
     private String imageOrderNo;
 
+    // TODO: [Open Question] 2026-07-16 GR2 처방코어 아키텍처 확정 이후, 실제 호출 주체가
+    // 항상 "GR2 처방코어" 하나로 고정된다면 이 필드가 "GR2/ZQ2/UD2" 같은 개별 채널 값을
+    // 받을 일이 없어짐. 대신 코어 쪽 API는 채널 구분을 encounterType(OPD|ER|IP)으로
+    // 관리하고 있어, 원래 환자가 어느 채널에서 왔는지 구분하려면
+    // systemCode를 encounterType 값(OPD/ER/IP)으로 대체하거나 별도 필드를 추가해야 할
+    // 가능성이 있음. 코어 쪽 실제 요청 payload가 확정되면 이 필드부터 재검토 필요.
     @NotBlank
     @Size(max = 10)
     @Schema(description = "연계시스템코드", example = "GR2", requiredMode = Schema.RequiredMode.REQUIRED)

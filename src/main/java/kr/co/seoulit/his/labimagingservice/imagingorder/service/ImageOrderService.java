@@ -20,6 +20,8 @@ import java.util.UUID;
 /**
  * 영상 오더 접수 서비스
  * 대응 유스케이스: UC-IMG-01 영상오더접수 (Jira ZP2-19)
+ * ※ 2026-07-16부터 Consumer가 GR2 처방코어로 일원화됨(기존: GR2/ZQ2/UD2 개별 호출).
+ *   PATCH cancel도 동일하게 코어 경유로 변경.
  *
  * ⚠ Service 인터페이스 없이 클래스로 바로 구현했습니다 (ImageOrderServiceImpl 형태 아님).
  *   - 구현체가 1개뿐이고 교체될 계획이 없어 인터페이스로 얻을 다형성 이득이 없음

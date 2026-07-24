@@ -52,7 +52,7 @@ public class LabScheduleService {
         current.markAsNotLatest();
 
         LabReceptionEntity reception = current.getLabReception();
-        LabScheduleEntity next = LabScheduleEntity.builder()
+        LabScheduleEntity reschedule = LabScheduleEntity.builder()
                 .scheduleTypeCode(current.getScheduleTypeCode())
                 .scheduledAt(request.getScheduledAt())
                 .reservationYn(request.getReservationYn())
@@ -60,8 +60,9 @@ public class LabScheduleService {
                 .confirmedById(request.getConfirmedById())
                 .latestYn("Y")
                 .build();
-        reception.addSchedule(next);
-        LabScheduleEntity saved = labScheduleRepository.save(next);
+        reception.addSchedule(reschedule);
+
+        LabScheduleEntity saved = labScheduleRepository.save(reschedule);
         return labScheduleMapper.toResponse(saved);
         }
     }

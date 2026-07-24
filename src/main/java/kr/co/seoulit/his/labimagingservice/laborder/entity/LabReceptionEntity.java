@@ -1,20 +1,16 @@
 package kr.co.seoulit.his.labimagingservice.laborder.entity;
 
+import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -56,6 +52,9 @@ public class LabReceptionEntity extends BaseAuditEntity {
     @Column(name = "ack_sent_at")
     private LocalDateTime ackSentAt;
 
+    @OneToMany(mappedBy = "labReception", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<LabScheduleEntity> schedules = new ArrayList<>();
+
     @Builder
     public LabReceptionEntity(String receptionNo, String patientNo, String receptionStatusCode,
                                String urgencyYn, String receivedById, String ackSentYn, LocalDateTime ackSentAt) {
@@ -74,7 +73,10 @@ public class LabReceptionEntity extends BaseAuditEntity {
             this.labReceptionId = UUID.randomUUID().toString();
         }
     }
-
+    public void addSchedule(LabScheduleEntity schedule) {
+        this.schedules.add(schedule);
+        schedule.assignLabReception(this);
+    }
     void assignLabOrder(LabOrderEntity labOrder) {
         this.labOrder = labOrder;
     }

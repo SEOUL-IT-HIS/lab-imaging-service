@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -21,15 +22,21 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/api/lab-imaging/lab-orders")
 @Tag(name = "Lab Order", description = "검사 오더 접수 API")
 public class LabOrderController {
 
     private final LabOrderService labOrderService;
 
+<<<<<<< HEAD
     @Operation(summary = "검사 오더 접수", description = "외부 시스템에서 발생한 검사 오더를 접수하고, 검사접수(LAB_RECEPTION)를 함께 생성한다. "
             + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
     @PostMapping("/lab-orders")
+=======
+    @Operation(summary = "검사 오더 접수", description = "외부 시스템(외래/병동/응급)에서 발생한 검사 오더를 접수하고, 검사접수(LAB_RECEPTION)를 함께 생성한다.")
+    @PostMapping
+>>>>>>> 81e0b3c001b3f525753e86592ed62ab7fb4e3586
     public ResponseEntity<ApiResponse<LabOrderCreateResponseDto>> createOrder(
             @Valid @RequestBody LabOrderCreateRequestDto request) {
 

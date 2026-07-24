@@ -14,7 +14,11 @@ public final class LabMessageCode {
     public static final String LAB001 = "LAB001"; // 검사 접수가 생성되었습니다.
     public static final String LAB002 = "LAB002"; // 조회된 검사 오더가 없습니다.
     public static final String LAB003 = "LAB003"; // 필수 항목이 누락되어 접수를 처리할 수 없습니다.
-    public static final String LAB004 = "LAB004"; // 이미 접수된 오더입니다. (중복)
+    public static final String LAB004 = "LAB004";// 이미 접수된 오더입니다. (중복)
+    public static final String LAB009 = "LAB009"; // 검사 일정이 등록되었습니다.
+    public static final String LAB010 = "LAB010"; // 검사 일정이 재등록되었습니다.
+    public static final String LAB011 = "LAB011";//접수 정보를 찾을 수 없습니다.
+    public static final String LAB012 = "LAB012"; //재등록할 기존 일정이 없습니다.
 
     // ---- 영상(IMAGE) 오더/접수 ----
     public static final String LAB005 = "LAB005"; // 영상 접수가 생성되었습니다.

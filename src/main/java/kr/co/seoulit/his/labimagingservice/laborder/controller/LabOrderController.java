@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -21,13 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/api/lab-imaging/lab-orders")
 @Tag(name = "Lab Order", description = "검사 오더 접수 API")
 public class LabOrderController {
 
     private final LabOrderService labOrderService;
 
     @Operation(summary = "검사 오더 접수", description = "외부 시스템(외래/병동/응급)에서 발생한 검사 오더를 접수하고, 검사접수(LAB_RECEPTION)를 함께 생성한다.")
-    @PostMapping("/lab-orders")
+    @PostMapping
     public ResponseEntity<ApiResponse<LabOrderCreateResponseDto>> createOrder(
             @Valid @RequestBody LabOrderCreateRequestDto request) {
 

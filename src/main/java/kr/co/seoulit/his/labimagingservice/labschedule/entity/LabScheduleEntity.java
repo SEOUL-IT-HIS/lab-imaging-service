@@ -4,10 +4,7 @@ package kr.co.seoulit.his.labimagingservice.labschedule.entity;
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -62,8 +59,10 @@ public class LabScheduleEntity extends BaseAuditEntity{
             this.labScheduleId = UUID.randomUUID().toString();
         }
     }
-
     public void assignLabReception(LabReceptionEntity labReception) {
         this.labReception = labReception;
+    }
+    public void markAsNotLatest() {// 캡슐화 — 기존 assign/add 스타일과 일관
+        this.latestYn = "N";
     }
 }

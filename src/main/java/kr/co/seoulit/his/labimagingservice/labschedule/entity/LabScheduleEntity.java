@@ -1,6 +1,5 @@
 package kr.co.seoulit.his.labimagingservice.labschedule.entity;
 
-
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
@@ -62,7 +61,7 @@ public class LabScheduleEntity extends BaseAuditEntity{
     public void assignLabReception(LabReceptionEntity labReception) {
         this.labReception = labReception;
     }
-    public void markAsNotLatest() {// 캡슐화 — 기존 assign/add 스타일과 일관
+    public void markAsNotLatest() {//스케쥴 재등록 시 기존 스케쥴이 최종본이 아님을 나타냄
         this.latestYn = "N";
     }
 }

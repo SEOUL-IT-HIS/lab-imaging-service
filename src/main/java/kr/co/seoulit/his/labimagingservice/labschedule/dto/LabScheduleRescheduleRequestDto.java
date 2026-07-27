@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "검사 일정 재등록 요청")
-public class LabRescheduleRequestDto {
+public class LabScheduleRescheduleRequestDto {
 
     @NotNull
     @Schema(description = "재조정된 검사 확정일시", example = "2026-07-26T14:00:00")

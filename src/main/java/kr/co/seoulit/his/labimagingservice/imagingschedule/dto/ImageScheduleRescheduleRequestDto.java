@@ -17,12 +17,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "영상 촬영 일정 등록 요청")
-public class ImageScheduleCreateRequestDto {
+public class ImageScheduleRescheduleRequestDto {
 
-    @NotBlank
-    @Size(max = 36)
-    @Schema(description = "영상접수ID (IMAGE_RECEPTION 참조, UUID)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
-    private String imageReceptionId;
+    @NotNull
+    @Schema(description = "재조정된 영상 촬영 일정 확정일시", example = "2026-07-25T09:30:00")
+    private LocalDateTime scheduledAt;
 
     @NotBlank
     @Size(max = 10)
@@ -33,10 +32,6 @@ public class ImageScheduleCreateRequestDto {
     @Size(max = 10)
     @Schema(description = "촬영장비코드", example = "공통코드")
     private String equipmentCode;
-
-    @NotNull
-    @Schema(description = "영상일정 확정일시", example = "2026-07-25T09:30:00")
-    private LocalDateTime scheduledAt;
 
     @NotBlank
     @YnValue
@@ -54,6 +49,6 @@ public class ImageScheduleCreateRequestDto {
 
     @NotBlank
     @Size(max = 20)
-    @Schema(description = "확정담당자ID (참조 식별자, 원본은 인사/원무 시스템 소유)", example = "STF00021")
+    @Schema(description = "재조정 확정담당자ID (참조 식별자)", example = "STF00033")
     private String confirmedById;
 }

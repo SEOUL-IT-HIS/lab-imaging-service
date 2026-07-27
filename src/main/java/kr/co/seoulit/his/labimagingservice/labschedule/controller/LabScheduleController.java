@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.co.seoulit.his.labimagingservice.labschedule.dto.LabScheduleCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.labschedule.dto.LabRescheduleRequestDto;
+import kr.co.seoulit.his.labimagingservice.labschedule.dto.LabScheduleRescheduleRequestDto;
 import kr.co.seoulit.his.labimagingservice.labschedule.dto.LabScheduleResponseDto;
 import kr.co.seoulit.his.labimagingservice.labschedule.service.LabScheduleService;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +43,7 @@ public class LabScheduleController {
     @PostMapping("/{labReceptionId}/reschedule")
     public ResponseEntity<ApiResponse<LabScheduleResponseDto>> createLabReschedule(
             @PathVariable String labReceptionId,
-            @Valid @RequestBody LabRescheduleRequestDto request) {
+            @Valid @RequestBody LabScheduleRescheduleRequestDto request) {
 
         LabScheduleResponseDto response = labScheduleService.createLabReschedule(labReceptionId, request);
 

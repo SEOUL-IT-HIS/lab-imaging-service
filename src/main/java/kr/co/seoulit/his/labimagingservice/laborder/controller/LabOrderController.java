@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 검사 오더 관련 API
  * 대응 유스케이스: UC-SPC-01 검사오더접수 (Jira ZP2-12)
@@ -25,13 +27,27 @@ public class LabOrderController {
 
     private final LabOrderService labOrderService;
 
-    @Operation(summary = "검사 접수 단건 조회", description = "접수번호로 검사접수(LAB_RECEPTION) 정보를 조회한다.")
+    @Operation(summary = "검사 접수 목록 조회", description = "일정 등록 대상 선택용 검사접수(LAB_RECEPTION) 목록을 조회한다.")
     @GetMapping("/receptions")
+    public ResponseEntity<ApiResponse<List<LabOrderSummaryDto>>> getReceptions() {
+        List<LabOrderSummaryDto> response = labOrderService.getReceptions();
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB003, "검사 접수 목록 조회에 성공했습니다.")
+        );
+    }
+
+    /**
+     * 단건 조회는 접수번호를 경로변수(/receptions/{receptionNo})로 받는다.
+     * - 목록("/receptions")과 경로 자체가 달라 매핑 충돌이 없다. (params 분기 불필요)
+     * - REST 컨벤션상 "컬렉션(/receptions) vs 개별 리소스(/receptions/{id})" 구분에 부합한다.
+     */
+    @Operation(summary = "검사 접수 단건 조회", description = "접수번호로 검사접수(LAB_RECEPTION) 정보를 조회한다.")
+    @GetMapping("/receptions/{receptionNo}")
     public ResponseEntity<ApiResponse<LabOrderSummaryDto>> getReceptionByNo(
-            @RequestParam String receptionNo) {
+            @PathVariable String receptionNo) {
         LabOrderSummaryDto response = labOrderService.getReceptionByNo(receptionNo);
         return ResponseEntity.ok(
-                ApiResponse.success(response, LabMessageCode.LAB003, "접수 조회에 성공했습니다.")
+                ApiResponse.success(response, LabMessageCode.LAB003, "검사 접수 단건 조회에 성공했습니다.")
         );
     }
 

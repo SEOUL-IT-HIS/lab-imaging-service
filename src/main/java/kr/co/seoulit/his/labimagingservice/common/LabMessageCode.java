@@ -15,7 +15,7 @@ public final class LabMessageCode {
     // ---- 검사(LAB) 오더/접수/조회 ----
     public static final String LAB001 = "LAB001"; // 검사 접수가 생성되었습니다.
     public static final String LAB002 = "LAB002"; // 조회된 검사 오더가 없습니다.
-    public static final String LAB003 = "LAB003"; // 접수 조회가 성공했습니다.
+    public static final String LAB003 = "LAB003"; // 검사 접수 조회가 성공했습니다.
     public static final String LAB004 = "LAB004"; // 이미 접수된 오더입니다. (중복)
 
     // ---- 검사(LAB) 일정/조회 ----
@@ -28,6 +28,7 @@ public final class LabMessageCode {
     public static final String LAB005 = "LAB005"; // 영상 접수가 생성되었습니다.
     public static final String LAB006 = "LAB006"; // 조회된 영상 오더가 없습니다.
     public static final String LAB007 = "LAB007"; // 이미 접수된 오더입니다. (중복)
+    public static final String LAB008 = "LAB008"; // 영상촬영 접수 조회가 성공했습니다.
 
     // ---- 영상(IMAGE) 일정/조회 ----
     public static final String LAB011 = "LAB011"; // 영상 일정이 등록되었습니다.

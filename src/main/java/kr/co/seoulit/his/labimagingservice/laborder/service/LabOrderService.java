@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -57,6 +58,23 @@ public class LabOrderService {
                         LabMessageCode.LAB013,
                         "검사접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
         return labOrderMapper.toResponse(reception.getLabOrder(), reception);
+    }
+
+    // ------------검사 접수 목록 조회 (미일정 대상)---------------
+    /**
+     * 일정등록 대상 = "아직 일정이 없는(미일정)" 검사접수 목록.
+     * - 조회 전용이라 @Transactional(readOnly = true). OSIV 비의존 + flush/dirty-checking 부담 감소.
+     * - 결과 0건은 정상적인 빈 목록이므로, 예외를 던지지 않고 [] 를 그대로 반환한다.
+     *   (단건 조회는 "못 찾음 = 예외"가 맞지만, 목록은 빈 결과가 정상 케이스다.)
+     * - 미일정 필터와 N+1(join fetch) 방어 설명은 findUnscheduledWithLabOrder() 주석 참고.
+     *
+     * TODO(후속): 환자번호/접수일자/상태코드 등 검색조건, 페이지네이션(Pageable) 필요 시 확장.
+     */
+    @Transactional(readOnly = true)
+    public List<LabOrderSummaryDto> getReceptions() {
+        return labReceptionRepository.findUnscheduledWithLabOrder().stream()
+                .map(reception -> labOrderMapper.toResponse(reception.getLabOrder(), reception))
+                .toList();
     }
 
     @Transactional

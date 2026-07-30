@@ -11,7 +11,7 @@ package kr.co.seoulit.his.labimagingservice.client;
  *    호출하지 않는 것을 권장합니다 (TODO 주석으로만 표시).
  *
  * 참고 API(Patient_Service_API_명세서_완성본.xlsx 기준):
- *   GET /api/v1/patients/{patientId}/validation
+ *   GET /api/patients/{patientId}/validation
  */
 public interface PatientServiceClient {
 

@@ -2,14 +2,16 @@ package kr.co.seoulit.his.labimagingservice.laborder.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateResponseDto;
+import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.mapper.LabOrderMapper;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderRepository;
+import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,17 +42,28 @@ import java.util.UUID;
 public class LabOrderService {
 
     private final LabOrderRepository labOrderRepository;
+    private final LabReceptionRepository labReceptionRepository;
     private final LabOrderMapper labOrderMapper;
 
     // TODO: 실제 연동 시점에 주입하여 사용
     // private final PatientServiceClient patientServiceClient;
     // private final AdminCommonCodeClient adminCommonCodeClient;
 
+    // ------------검사  접수 단건 조회---------------
+    @Transactional(readOnly = true)
+    public LabOrderSummaryDto getReceptionByNo(String receptionNo) {
+        LabReceptionEntity reception = labReceptionRepository.findByReceptionNo(receptionNo)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB013,
+                        "검사접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
+        return labOrderMapper.toResponse(reception.getLabOrder(), reception);
+    }
+
     @Transactional
-    public LabOrderCreateResponseDto createOrder(LabOrderCreateRequestDto request) {
+    public LabOrderSummaryDto createOrder(LabOrderCreateRequestDto request) {
 
         // TODO: (Patient Service 연동 시점) patientServiceClient.validatePatient(request.getPatientNo())
-        //       유효하지 않은 환자번호면 LabImagingBusinessException(LAB003, ...) 발생
+        //       유효하지 않은 환자번호면 LabImagingBusinessException(LAB998, ...) 발생
 
         // TODO: (Admin 공통코드 연동 시점) adminCommonCodeClient.isValidCode("TREAT_TYPE_CD", request.getTreatTypeCode())
         //       systemCode, treatTypeCode 등의 코드값 유효성 검증

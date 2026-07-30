@@ -51,6 +51,4 @@ public class LabScheduleController {
                 ApiResponse.success(response, LabMessageCode.LAB010, "검사 일정이 재등록되었습니다.")
         );
     }
-
-
 }

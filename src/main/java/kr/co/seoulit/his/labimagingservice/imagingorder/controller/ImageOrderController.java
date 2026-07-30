@@ -3,7 +3,7 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.controller;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateResponseDto;
+import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.service.ImageOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,10 +32,10 @@ public class ImageOrderController {
             + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
     @PostMapping
-    public ResponseEntity<ApiResponse<ImageOrderCreateResponseDto>> createOrder(
+    public ResponseEntity<ApiResponse<ImageOrderSummaryDto>> createOrder(
             @Valid @RequestBody ImageOrderCreateRequestDto request) {
 
-        ImageOrderCreateResponseDto response = imageOrderService.createOrder(request);
+        ImageOrderSummaryDto response = imageOrderService.createOrder(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB005, "영상 접수가 생성되었습니다.")

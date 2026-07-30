@@ -3,7 +3,7 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateResponseDto;
+import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
@@ -46,14 +46,14 @@ public class ImageOrderService {
     // private final AdminCommonCodeClient adminCommonCodeClient;
 
     @Transactional
-    public ImageOrderCreateResponseDto createOrder(ImageOrderCreateRequestDto request) {
+    public ImageOrderSummaryDto createOrder(ImageOrderCreateRequestDto request) {
 
         // TODO: (Patient Service 연동 시점) patientServiceClient.validatePatient(request.getPatientNo())
         // TODO: (Admin 공통코드 연동 시점) adminCommonCodeClient.isValidCode(...)
 
         if (imageOrderRepository.existsByImageOrderNo(request.getImageOrderNo())) {
             throw new DuplicateOrderException(
-                    LabMessageCode.LAB008,
+                    LabMessageCode.LAB007,
                     "이미 접수된 오더입니다. (imageOrderNo=" + request.getImageOrderNo() + ")"
             );
         }

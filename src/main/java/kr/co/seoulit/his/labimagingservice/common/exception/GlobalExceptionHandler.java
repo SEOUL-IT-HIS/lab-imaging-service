@@ -32,13 +32,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(LabMessageCode.LAB003, "필수 항목이 누락되었거나 형식이 올바르지 않습니다."));
+                .body(ApiResponse.fail(LabMessageCode.LAB998, "필수 항목이 누락되었거나 형식이 올바르지 않습니다."));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(LabMessageCode.LAB003, "필수 항목이 누락되었거나 형식이 올바르지 않습니다."));
+                .body(ApiResponse.fail(LabMessageCode.LAB998, "필수 항목이 누락되었거나 형식이 올바르지 않습니다."));
     }
 
     @ExceptionHandler(Exception.class)

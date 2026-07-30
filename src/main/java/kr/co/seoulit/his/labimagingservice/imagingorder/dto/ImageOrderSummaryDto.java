@@ -15,13 +15,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "영상 오더 접수 응답")
-public class ImageOrderCreateResponseDto {
+public class ImageOrderSummaryDto {
 
     @Schema(description = "오더ID", example = "7a1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e")
     private String imageOrderId;
 
     @Schema(description = "오더번호", example = "IO-2026-000456")
     private String imageOrderNo;
+
+    @Schema(description = "환자번호", example = "PA-2026-000456")
+    private String patientNo;
 
     @Schema(description = "오더상태코드", example = "RECEIVED")
     private String orderStatusCode;

@@ -1,6 +1,6 @@
 package kr.co.seoulit.his.labimagingservice.laborder.mapper;
 
-import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateResponseDto;
+import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import org.mapstruct.Mapper;
@@ -20,5 +20,6 @@ public interface LabOrderMapper {
     @Mapping(target = "labReceptionId", source = "reception.labReceptionId")
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
-    LabOrderCreateResponseDto toResponse(LabOrderEntity order, LabReceptionEntity reception);
+    @Mapping(target = "patientNo", source = "reception.patientNo")
+    LabOrderSummaryDto toResponse(LabOrderEntity order, LabReceptionEntity reception);
 }

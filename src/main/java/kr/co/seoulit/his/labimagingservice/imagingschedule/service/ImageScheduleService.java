@@ -26,7 +26,7 @@ public class ImageScheduleService {
     public ImageScheduleResponseDto createImageSchedule(ImageScheduleCreateRequestDto request) {
         ImageReceptionEntity reception = imageReceptionRepository.findById(request.getImageReceptionId())
                 .orElseThrow(() -> new LabImagingBusinessException(
-                        LabMessageCode.LAB015, "영상접수 정보를 찾을 수 없습니다."));
+                        LabMessageCode.LAB015, "영상 촬영 접수 정보를 찾을 수 없습니다."));
 
         ImageScheduleEntity schedule = ImageScheduleEntity.builder()
                 .roomCode(request.getRoomCode())

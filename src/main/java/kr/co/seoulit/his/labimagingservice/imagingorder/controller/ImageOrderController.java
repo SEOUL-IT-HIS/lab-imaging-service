@@ -11,10 +11,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 영상 오더 관련 API
@@ -27,6 +26,30 @@ import org.springframework.web.bind.annotation.RestController;
 public class ImageOrderController {
 
     private final ImageOrderService imageOrderService;
+
+    @Operation(summary = "영상 촬영 접수 목록 조회", description = "일정 등록 대상 선택용 영상접수(IMAGE_RECEPTION) 목록을 조회한다.")
+    @GetMapping("/receptions")
+    public ResponseEntity<ApiResponse<List<ImageOrderSummaryDto>>> getReceptions() {
+        List<ImageOrderSummaryDto> response = imageOrderService.getReceptions();
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB003, "영상 촬영 접수 목록 조회에 성공했습니다.")
+        );
+    }
+
+    /**
+     * 단건 조회는 접수번호를 경로변수(/receptions/{receptionNo})로 받는다.
+     * - 목록("/receptions")과 경로 자체가 달라 매핑 충돌이 없다. (params 분기 불필요)
+     * - REST 컨벤션상 "컬렉션(/receptions) vs 개별 리소스(/receptions/{id})" 구분에 부합한다.
+     */
+    @Operation(summary = "영상 촬영 접수 단건 조회", description = "접수번호로 영상접수(IMAGE_RECEPTION) 정보를 조회한다.")
+    @GetMapping("/receptions/{receptionNo}")
+    public ResponseEntity<ApiResponse<ImageOrderSummaryDto>> getReceptionByNo(
+            @PathVariable String receptionNo) {
+        ImageOrderSummaryDto response = imageOrderService.getReceptionByNo(receptionNo);
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB003, "검사 접수 단건 조회에 성공했습니다.")
+        );
+    }
 
     @Operation(summary = "영상 오더 접수", description = "외부 시스템에서 발생한 영상 오더를 접수하고, 영상검사접수(IMAGE_RECEPTION)를 함께 생성한다. "
             + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "

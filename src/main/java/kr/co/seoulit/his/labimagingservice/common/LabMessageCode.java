@@ -21,7 +21,7 @@ public final class LabMessageCode {
     // ---- 검사(LAB) 일정/조회 ----
     public static final String LAB009 = "LAB009"; // 검사 일정이 등록되었습니다.
     public static final String LAB010 = "LAB010"; // 검사 일정이 재등록되었습니다.
-    public static final String LAB013 = "LAB013"; // 검사접수 정보를 찾을 수 없습니다.
+    public static final String LAB013 = "LAB013"; // 검사 접수 정보를 찾을 수 없습니다.
     public static final String LAB014 = "LAB014"; // 재등록할 기존 검사 일정이 없습니다.
 
     // ---- 영상(IMAGE) 오더/접수/조회 ----
@@ -33,7 +33,7 @@ public final class LabMessageCode {
     // ---- 영상(IMAGE) 일정/조회 ----
     public static final String LAB011 = "LAB011"; // 영상 일정이 등록되었습니다.
     public static final String LAB012 = "LAB012"; // 영상 일정이 재등록되었습니다.
-    public static final String LAB015 = "LAB015"; // 영상접수 정보를 찾을 수 없습니다.
+    public static final String LAB015 = "LAB015"; // 영상 촬영 접수 정보를 찾을 수 없습니다.
     public static final String LAB016 = "LAB016"; // 재등록할 기존 영상 일정이 없습니다.
 
     // ---- 공통 (도메인과 무관한 기술적 상황만) ----

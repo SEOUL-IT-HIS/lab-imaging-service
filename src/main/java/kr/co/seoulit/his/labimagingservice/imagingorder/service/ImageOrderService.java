@@ -2,6 +2,7 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderItemRequestDto;
@@ -10,11 +11,13 @@ import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEnt
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.mapper.ImageOrderMapper;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderRepository;
+import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,11 +42,31 @@ import java.util.UUID;
 public class ImageOrderService {
 
     private final ImageOrderRepository imageOrderRepository;
+    private final ImageReceptionRepository imageReceptionRepository;
     private final ImageOrderMapper imageOrderMapper;
 
     // TODO: 실제 연동 시점에 주입하여 사용
     // private final PatientServiceClient patientServiceClient;
     // private final AdminCommonCodeClient adminCommonCodeClient;
+
+
+    // ------------영상  접수 단건 조회---------------
+    @Transactional(readOnly = true)
+    public ImageOrderSummaryDto getReceptionByNo(String receptionNo) {
+        ImageReceptionEntity reception = imageReceptionRepository.findByReceptionNo(receptionNo)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB015,
+                        "영상 촬영 접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
+        return imageOrderMapper.toResponse(reception.getImageOrder(), reception);
+    }
+
+    // ------------영상 촬영 접수 목록 조회 (미일정 대상)---------------
+    @Transactional(readOnly = true)
+    public List<ImageOrderSummaryDto> getReceptions() {
+        return imageReceptionRepository.findUnscheduledWithImageOrder().stream()
+                .map(reception -> imageOrderMapper.toResponse(reception.getImageOrder(), reception))
+                .toList();
+    }
 
     @Transactional
     public ImageOrderSummaryDto createOrder(ImageOrderCreateRequestDto request) {

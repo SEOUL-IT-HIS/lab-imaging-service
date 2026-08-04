@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
+import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -35,7 +36,8 @@ import java.util.UUID;
  *   전략 구현), 모듈 경계에서 계약(API)만 노출하고 구현 세부사항은 감춰야 할 때. 이 서비스가
  *   그런 상황이 되면(다른 구현체가 추가되면) 인터페이스를 추출하는 것이 맞습니다.
  *
- * ⚠ 타 서비스 연동은 아직 호출하지 않습니다. (LabOrderService와 동일한 상태 — 상세 사유는 그쪽 주석 참고)
+ * ⚠ 타 서비스 연동 현황은 LabOrderService와 동일합니다 (환자검증 연동 완료 / 공통코드 검증 미연동 —
+ *   상세 사유는 그쪽 주석 참고).
  */
 @Service
 @RequiredArgsConstructor
@@ -44,10 +46,10 @@ public class ImageOrderService {
     private final ImageOrderRepository imageOrderRepository;
     private final ImageReceptionRepository imageReceptionRepository;
     private final ImageOrderMapper imageOrderMapper;
+    private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
 
-    // TODO: 실제 연동 시점에 주입하여 사용
-    // private final PatientServiceClient patientServiceClient;
-    // private final AdminCommonCodeClient adminCommonCodeClient;
+    // TODO: 공통코드 검증은 CommonCodeCache 를 주입해 연결한다. (캐시 적재 확인 후 다음 단계)
+    // private final CommonCodeCache commonCodeCache;
 
 
     // ------------영상  접수 단건 조회---------------
@@ -71,8 +73,15 @@ public class ImageOrderService {
     @Transactional
     public ImageOrderSummaryDto createOrder(ImageOrderCreateRequestDto request) {
 
-        // TODO: (Patient Service 연동 시점) patientServiceClient.validatePatient(request.getPatientNo())
-        // TODO: (Admin 공통코드 연동 시점) adminCommonCodeClient.isValidCode(...)
+        // 환자 유효성 검증 — 상세 동작은 LabOrderService.createOrder 주석 참고
+        if (!patientServiceBusinessDelegate.validatePatient(request.getPatientNo())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB998,
+                    "유효하지 않은 환자번호입니다. (patientNo=" + request.getPatientNo() + ")"
+            );
+        }
+
+        // TODO: (공통코드 캐시 적재 후) commonCodeCache.isValid(...) — 그룹코드ID 확정 후 연결
 
         if (imageOrderRepository.existsByImageOrderNo(request.getImageOrderNo())) {
             throw new DuplicateOrderException(

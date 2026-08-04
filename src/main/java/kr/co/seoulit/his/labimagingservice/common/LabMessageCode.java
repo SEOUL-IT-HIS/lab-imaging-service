@@ -38,5 +38,5 @@ public final class LabMessageCode {
 
     // ---- 공통 (도메인과 무관한 기술적 상황만) ----
     public static final String LAB999 = "LAB999"; // 처리 중 오류가 발생했습니다.
-    public static final String LAB998 = "LAB998"; // 필수 항목이 누락되었거나 형식이 올바르지 않습니다.
+    public static final String LAB998 = "LAB998"; // 유효성 검증 / 필수값 누락 / 잘못된 형식
 }

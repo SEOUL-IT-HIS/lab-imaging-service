@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.labimagingservice.laborder.service;
 
+import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -35,8 +36,10 @@ import java.util.UUID;
  *   전략 구현), 모듈 경계에서 계약(API)만 노출하고 구현 세부사항은 감춰야 할 때. 이 서비스가
  *   그런 상황이 되면(다른 구현체가 추가되면) 인터페이스를 추출하는 것이 맞습니다.
  *
- * ⚠ 타 서비스 연동(PatientServiceClient, AdminCommonCodeClient)은 아직 호출하지 않습니다.
- *   실제 연동 시점에 검증 로직을 추가해야 하는 지점을 TODO로 표시해뒀습니다.
+ * ⚠ 타 서비스 연동 현황 (2026-08-04)
+ *   - PatientServiceBusinessDelegate: 연동 완료. createOrder에서 환자번호 유효성을 검증합니다.
+ *   - 공통코드 검증: 미연동. CommonCodeCache는 동작하지만, 각 필드에 대응하는 그룹코드ID가
+ *     확정되지 않아 연결은 다음 단계입니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -45,10 +48,10 @@ public class LabOrderService {
     private final LabOrderRepository labOrderRepository;
     private final LabReceptionRepository labReceptionRepository;
     private final LabOrderMapper labOrderMapper;
+    private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
 
-    // TODO: 실제 연동 시점에 주입하여 사용
-    // private final PatientServiceClient patientServiceClient;
-    // private final AdminCommonCodeClient adminCommonCodeClient;
+    // TODO: 공통코드 검증은 CommonCodeCache 를 주입해 연결한다. (캐시 적재 확인 후 다음 단계)
+    // private final CommonCodeCache commonCodeCache;
 
     // ------------검사  접수 단건 조회---------------
     @Transactional(readOnly = true)
@@ -80,11 +83,18 @@ public class LabOrderService {
     @Transactional
     public LabOrderSummaryDto createOrder(LabOrderCreateRequestDto request) {
 
-        // TODO: (Patient Service 연동 시점) patientServiceClient.validatePatient(request.getPatientNo())
-        //       유효하지 않은 환자번호면 LabImagingBusinessException(LAB998, ...) 발생
+        // 환자 유효성 검증 — 존재하지 않거나 비활성/통합된 환자면 접수를 만들지 않는다.
+        // 환자서비스 장애(타임아웃/5xx)는 false가 아니라 예외로 전파되어 LAB999(500)로 응답한다.
+        if (!patientServiceBusinessDelegate.validatePatient(request.getPatientNo())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB998,
+                    "유효하지 않은 환자번호입니다. (patientNo=" + request.getPatientNo() + ")"
+            );
+        }
 
-        // TODO: (Admin 공통코드 연동 시점) adminCommonCodeClient.isValidCode("TREAT_TYPE_CD", request.getTreatTypeCode())
+        // TODO: (공통코드 캐시 적재 후) commonCodeCache.isValid("TREAT_TYPE_CD", request.getTreatTypeCode())
         //       systemCode, treatTypeCode 등의 코드값 유효성 검증
+        //       — 각 필드에 대응하는 그룹코드ID가 확정되지 않아 이번 단계에서는 연결하지 않는다.
 
         // 중복 접수 방지: 오더번호(lab_order_no) UNIQUE 위반을 사전에 확인
         if (labOrderRepository.existsByLabOrderNo(request.getLabOrderNo())) {

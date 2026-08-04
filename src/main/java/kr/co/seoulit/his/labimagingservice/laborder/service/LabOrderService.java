@@ -37,7 +37,9 @@ import java.util.UUID;
  *   그런 상황이 되면(다른 구현체가 추가되면) 인터페이스를 추출하는 것이 맞습니다.
  *
  * ⚠ 타 서비스 연동 현황 (2026-08-04)
- *   - PatientServiceBusinessDelegate: 연동 완료. createOrder에서 환자번호 유효성을 검증합니다.
+ * - PatientServiceBusinessDelegate: 코드는 완료. 단 2026-08-04 현재 환자서비스의
+ *   /validation 이 미구현이라 404 → false 로 떨어져 createOrder 가 항상 LAB998 을 반환합니다.
+ *   환자서비스 구현 완료 시 별도 수정 없이 정상 동작합니다.
  *   - 공통코드 검증: 미연동. CommonCodeCache는 동작하지만, 각 필드에 대응하는 그룹코드ID가
  *     확정되지 않아 연결은 다음 단계입니다.
  */

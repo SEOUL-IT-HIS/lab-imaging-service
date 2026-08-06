@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 public class ImageScheduleRescheduleRequestDto {
 
     @NotNull
-    @Schema(description = "재조정된 영상 촬영 일정 확정일시", example = "2026-07-25T09:30:00")
+    @Schema(description = "재조정된 촬영 예정일시", example = "2026-07-25T09:30:00")
     private LocalDateTime scheduledAt;
 
     @NotBlank

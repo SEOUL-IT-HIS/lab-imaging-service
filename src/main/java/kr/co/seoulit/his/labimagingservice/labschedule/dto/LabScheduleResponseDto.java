@@ -18,10 +18,7 @@ public class LabScheduleResponseDto {
     @Schema(description = "검사접수ID (LAB_RECEPTION 참조, UUID)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
     private String labReceptionId;
 
-    @Schema(description = "일정구분코드 (일반/예약 구분, 공통코드값)", example = "GENERAL")
-    private String scheduleTypeCode;
-
-    @Schema(description = "검사 확정일시", example = "2026-07-25T09:30:00")
+    @Schema(description = "검사 예정일시 (검사를 시행할 일시. 확정한 시각은 created_at)", example = "2026-07-25T09:30:00")
     private LocalDateTime scheduledAt;
 
     @Schema(description = "예약여부 (Y/N)", example = "N")

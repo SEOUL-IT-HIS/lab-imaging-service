@@ -27,7 +27,7 @@ public class ImageScheduleResponseDto {
     @Schema(description = "촬영장비코드", example = "공통코드")
     private String equipmentCode;
 
-    @Schema(description = "영상일정 확정일시", example = "2026-07-25T09:30:00")
+    @Schema(description = "촬영 예정일시 (검사를 시행할 일시. 확정한 시각은 created_at)", example = "2026-07-25T09:30:00")
     private LocalDateTime scheduledAt;
 
     @Schema(description = "예약여부 (Y/N)", example = "N")

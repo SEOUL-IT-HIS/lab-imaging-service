@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 public class LabScheduleRescheduleRequestDto {
 
     @NotNull
-    @Schema(description = "재조정된 검사 확정일시", example = "2026-07-26T14:00:00")
+    @Schema(description = "재조정된 검사 예정일시", example = "2026-07-26T14:00:00")
     private LocalDateTime scheduledAt;
 
     @NotBlank

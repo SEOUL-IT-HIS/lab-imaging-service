@@ -2,6 +2,10 @@ package kr.co.seoulit.his.labimagingservice.laborder.service;
 
 import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.OrderStatus;
+import kr.co.seoulit.his.labimagingservice.common.ReceptionStatus;
+import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
@@ -40,8 +44,9 @@ import java.util.UUID;
  * - PatientServiceBusinessDelegate: 코드는 완료. 단 2026-08-04 현재 환자서비스의
  *   /validation 이 미구현이라 404 → false 로 떨어져 createOrder 가 항상 LAB998 을 반환합니다.
  *   환자서비스 구현 완료 시 별도 수정 없이 정상 동작합니다.
- *   - 공통코드 검증: 미연동. CommonCodeCache는 동작하지만, 각 필드에 대응하는 그룹코드ID가
- *     확정되지 않아 연결은 다음 단계입니다.
+ * - 공통코드 검증: 연동 완료. CommonCodeCache(로컬 캐시)로 systemCode/treatTypeCode/labItemCode 를 검증합니다.
+ * - orderStatusCode/itemStatusCode 는 admin 공통코드가 아니라 서비스 내부 Enum입니다.
+ *   (common.OrderStatus / common.OrderItemStatus — 2026-08-04 팀 결정)
  */
 @Service
 @RequiredArgsConstructor
@@ -51,9 +56,7 @@ public class LabOrderService {
     private final LabReceptionRepository labReceptionRepository;
     private final LabOrderMapper labOrderMapper;
     private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
-
-    // TODO: 공통코드 검증은 CommonCodeCache 를 주입해 연결한다. (캐시 적재 확인 후 다음 단계)
-    // private final CommonCodeCache commonCodeCache;
+    private final CommonCodeCache commonCodeCache;
 
     // ------------검사  접수 단건 조회---------------
     @Transactional(readOnly = true)
@@ -94,9 +97,12 @@ public class LabOrderService {
             );
         }
 
-        // TODO: (공통코드 캐시 적재 후) commonCodeCache.isValid("TREAT_TYPE_CD", request.getTreatTypeCode())
-        //       systemCode, treatTypeCode 등의 코드값 유효성 검증
-        //       — 각 필드에 대응하는 그룹코드ID가 확정되지 않아 이번 단계에서는 연결하지 않는다.
+        // 공통코드 검증 — admin 실시간 조회가 아니라 로컬 캐시(CommonCodeCache)로 확인한다.
+        validateCode("SYSTEM_SOURCE_CD", request.getSystemCode(), "연계시스템코드");
+        validateCode("RCPT_TYPE_CD", request.getTreatTypeCode(), "진료구분코드");
+        for (LabOrderItemRequestDto itemRequest : request.getOrderItems()) {
+            validateCode("TEST_TYPE_CD", itemRequest.getLabItemCode(), "검사항목코드");
+        }
 
         // 중복 접수 방지: 오더번호(lab_order_no) UNIQUE 위반을 사전에 확인
         if (labOrderRepository.existsByLabOrderNo(request.getLabOrderNo())) {
@@ -113,14 +119,14 @@ public class LabOrderService {
                 .physicianNo(request.getPhysicianNo())
                 .treatTypeCode(request.getTreatTypeCode())
                 .urgencyYn(request.getUrgencyYn())
-                .orderStatusCode("RECEIVED") // TODO: 공통코드 확정 후 상수/코드 테이블 참조로 교체
+                .orderStatusCode(OrderStatus.RECEIVED.name())
                 .receivedAt(LocalDateTime.now())
                 .build();
 
         for (LabOrderItemRequestDto itemRequest : request.getOrderItems()) {
             LabOrderItemEntity item = LabOrderItemEntity.builder()
                     .labItemCode(itemRequest.getLabItemCode())
-                    .itemStatusCode("REGISTERED") // TODO: 공통코드 확정 후 교체
+                    .itemStatusCode(OrderItemStatus.REGISTERED.name())
                     .build();
             labOrder.addOrderItem(item);
         }
@@ -129,7 +135,7 @@ public class LabOrderService {
         LabReceptionEntity reception = LabReceptionEntity.builder()
                 .receptionNo(generateReceptionNo()) // TODO: 실제 채번 규칙 확정 필요 (현재는 임시 로직)
                 .patientNo(request.getPatientNo())
-                .receptionStatusCode("ACCEPTED") // TODO: 공통코드 확정 후 교체
+                .receptionStatusCode(ReceptionStatus.ACCEPTED.name())
                 .urgencyYn(request.getUrgencyYn())
                 .receivedById(request.getReceivedById())
                 .ackSentYn("N")
@@ -141,6 +147,21 @@ public class LabOrderService {
         LabReceptionEntity savedReception = saved.getReceptions().get(0);
 
         return labOrderMapper.toResponse(saved, savedReception);
+    }
+
+    /**
+     * 공통코드 캐시로 코드값을 검증하고, 유효하지 않으면 LAB017로 실패시킨다.
+     *
+     * ⚠ 캐시에 그룹 자체가 없어도 false다. admin에 해당 그룹이 등록돼 있는데도 계속 실패한다면
+     *   코드값이 아니라 캐시 적재를 먼저 의심해야 한다 (기동 로그의 "공통코드 캐시를 갱신했습니다" 확인).
+     */
+    private void validateCode(String groupCode, String code, String fieldLabel) {
+        if (!commonCodeCache.isValid(groupCode, code)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB017,
+                    "유효하지 않은 " + fieldLabel + "입니다. (" + groupCode + "=" + code + ")"
+            );
+        }
     }
 
     /**

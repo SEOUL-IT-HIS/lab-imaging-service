@@ -22,9 +22,6 @@ public class LabScheduleEntity extends BaseAuditEntity{
     @JoinColumn(name = "lab_reception_id", nullable = false)
     private LabReceptionEntity labReception;
 
-    @Column(name = "schedule_type_code", length = 10, nullable = false)
-    private String scheduleTypeCode;
-
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
 
@@ -41,10 +38,9 @@ public class LabScheduleEntity extends BaseAuditEntity{
     private String latestYn;
 
     @Builder
-    public LabScheduleEntity (String scheduleTypeCode, LocalDateTime scheduledAt,
+    public LabScheduleEntity (LocalDateTime scheduledAt,
                               String reservationYn, String guidanceNote, String confirmedById,
                               String latestYn) {
-        this.scheduleTypeCode = scheduleTypeCode;
         this.scheduledAt = scheduledAt;
         this.reservationYn = reservationYn;
         this.guidanceNote = guidanceNote;

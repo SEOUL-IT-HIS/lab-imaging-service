@@ -2,6 +2,10 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
 import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.OrderStatus;
+import kr.co.seoulit.his.labimagingservice.common.ReceptionStatus;
+import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
@@ -36,8 +40,9 @@ import java.util.UUID;
  *   전략 구현), 모듈 경계에서 계약(API)만 노출하고 구현 세부사항은 감춰야 할 때. 이 서비스가
  *   그런 상황이 되면(다른 구현체가 추가되면) 인터페이스를 추출하는 것이 맞습니다.
  *
- * ⚠ 타 서비스 연동 현황은 LabOrderService와 동일합니다 (환자검증 연동 완료 / 공통코드 검증 미연동 —
- *   상세 사유는 그쪽 주석 참고).
+ * ⚠ 타 서비스 연동 현황은 LabOrderService와 동일합니다 (환자검증·공통코드 검증 모두 연동 완료,
+ *   단 환자서비스 /validation 미구현으로 현재는 createOrder 가 항상 LAB998 — 상세 사유는 그쪽 주석 참고).
+ *   검증 대상 필드만 다릅니다: systemCode / treatTypeCode / imageItemCode.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,9 +52,7 @@ public class ImageOrderService {
     private final ImageReceptionRepository imageReceptionRepository;
     private final ImageOrderMapper imageOrderMapper;
     private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
-
-    // TODO: 공통코드 검증은 CommonCodeCache 를 주입해 연결한다. (캐시 적재 확인 후 다음 단계)
-    // private final CommonCodeCache commonCodeCache;
+    private final CommonCodeCache commonCodeCache;
 
 
     // ------------영상  접수 단건 조회---------------
@@ -81,7 +84,12 @@ public class ImageOrderService {
             );
         }
 
-        // TODO: (공통코드 캐시 적재 후) commonCodeCache.isValid(...) — 그룹코드ID 확정 후 연결
+        // 공통코드 검증 — admin 실시간 조회가 아니라 로컬 캐시(CommonCodeCache)로 확인한다.
+        validateCode("SYSTEM_SOURCE_CD", request.getSystemCode(), "연계시스템코드");
+        validateCode("RCPT_TYPE_CD", request.getTreatTypeCode(), "진료구분코드");
+        for (ImageOrderItemRequestDto itemRequest : request.getOrderItems()) {
+            validateCode("IMG_ITEM_CD", itemRequest.getImageItemCode(), "촬영항목코드");
+        }
 
         if (imageOrderRepository.existsByImageOrderNo(request.getImageOrderNo())) {
             throw new DuplicateOrderException(
@@ -97,14 +105,14 @@ public class ImageOrderService {
                 .physicianNo(request.getPhysicianNo())
                 .treatTypeCode(request.getTreatTypeCode())
                 .urgencyYn(request.getUrgencyYn())
-                .orderStatusCode("RECEIVED") // TODO: 공통코드 확정 후 교체
+                .orderStatusCode(OrderStatus.RECEIVED.name())
                 .receivedAt(LocalDateTime.now())
                 .build();
 
         for (ImageOrderItemRequestDto itemRequest : request.getOrderItems()) {
             ImageOrderItemEntity item = ImageOrderItemEntity.builder()
                     .imageItemCode(itemRequest.getImageItemCode())
-                    .itemStatusCode("REGISTERED") // TODO: 공통코드 확정 후 교체
+                    .itemStatusCode(OrderItemStatus.REGISTERED.name())
                     .build();
             imageOrder.addOrderItem(item);
         }
@@ -112,7 +120,7 @@ public class ImageOrderService {
         ImageReceptionEntity reception = ImageReceptionEntity.builder()
                 .receptionNo(generateReceptionNo()) // TODO: 실제 채번 규칙 확정 필요
                 .patientNo(request.getPatientNo())
-                .receptionStatusCode("ACCEPTED") // TODO: 공통코드 확정 후 교체
+                .receptionStatusCode(ReceptionStatus.ACCEPTED.name())
                 .urgencyYn(request.getUrgencyYn())
                 .receivedById(request.getReceivedById())
                 .ackSentYn("N")
@@ -124,6 +132,19 @@ public class ImageOrderService {
         ImageReceptionEntity savedReception = saved.getReceptions().get(0);
 
         return imageOrderMapper.toResponse(saved, savedReception);
+    }
+
+    /**
+     * 공통코드 캐시로 코드값을 검증하고, 유효하지 않으면 LAB017로 실패시킨다.
+     * (상세 주석은 LabOrderService.validateCode 참고)
+     */
+    private void validateCode(String groupCode, String code, String fieldLabel) {
+        if (!commonCodeCache.isValid(groupCode, code)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB017,
+                    "유효하지 않은 " + fieldLabel + "입니다. (" + groupCode + "=" + code + ")"
+            );
+        }
     }
 
     /**

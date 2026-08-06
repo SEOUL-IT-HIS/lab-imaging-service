@@ -35,7 +35,7 @@ public class ImageScheduleCreateRequestDto {
     private String equipmentCode;
 
     @NotNull
-    @Schema(description = "영상일정 확정일시", example = "2026-07-25T09:30:00")
+    @Schema(description = "촬영 예정일시 (검사를 시행할 일시. 확정한 시각은 created_at)", example = "2026-07-25T09:30:00")
     private LocalDateTime scheduledAt;
 
     @NotBlank

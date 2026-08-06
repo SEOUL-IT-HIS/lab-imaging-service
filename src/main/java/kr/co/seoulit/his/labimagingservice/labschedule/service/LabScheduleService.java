@@ -29,7 +29,6 @@ public class LabScheduleService {
                         LabMessageCode.LAB013, "검사접수 정보를 찾을 수 없습니다."));
 
         LabScheduleEntity schedule = LabScheduleEntity.builder()
-                .scheduleTypeCode(request.getScheduleTypeCode())
                 .scheduledAt(request.getScheduledAt())
                 .reservationYn(request.getReservationYn())
                 .guidanceNote(request.getGuidanceNote())
@@ -64,7 +63,6 @@ public class LabScheduleService {
 
         LabReceptionEntity reception = current.getLabReception();
         LabScheduleEntity reschedule = LabScheduleEntity.builder()
-                .scheduleTypeCode(current.getScheduleTypeCode())
                 .scheduledAt(request.getScheduledAt())
                 .reservationYn(request.getReservationYn())
                 .guidanceNote(request.getGuidanceNote())

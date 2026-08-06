@@ -2,9 +2,9 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
 import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
-import kr.co.seoulit.his.labimagingservice.common.OrderItemStatus;
-import kr.co.seoulit.his.labimagingservice.common.OrderStatus;
-import kr.co.seoulit.his.labimagingservice.common.ReceptionStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -148,7 +148,7 @@ public class ImageOrderService {
     }
 
     /**
-     * ⚠ 임시 채번 로직입니다. 실제 접수번호 채번 규칙이 정해지면 반드시 교체해야 합니다.
+     * ⚠ 임시 채번 로직입니다. 실제 접수번호 채번 규칙이 정해지면 교체해야 합니다.
      */
     private String generateReceptionNo() {
         return "IR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();

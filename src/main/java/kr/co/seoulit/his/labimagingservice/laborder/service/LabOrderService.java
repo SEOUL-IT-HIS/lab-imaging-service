@@ -2,9 +2,9 @@ package kr.co.seoulit.his.labimagingservice.laborder.service;
 
 import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
-import kr.co.seoulit.his.labimagingservice.common.OrderItemStatus;
-import kr.co.seoulit.his.labimagingservice.common.OrderStatus;
-import kr.co.seoulit.his.labimagingservice.common.ReceptionStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderStatus;
+import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -45,8 +45,8 @@ import java.util.UUID;
  *   /validation 이 미구현이라 404 → false 로 떨어져 createOrder 가 항상 LAB998 을 반환합니다.
  *   환자서비스 구현 완료 시 별도 수정 없이 정상 동작합니다.
  * - 공통코드 검증: 연동 완료. CommonCodeCache(로컬 캐시)로 systemCode/treatTypeCode/labItemCode 를 검증합니다.
- * - orderStatusCode/itemStatusCode 는 admin 공통코드가 아니라 서비스 내부 Enum입니다.
- *   (common.OrderStatus / common.OrderItemStatus — 2026-08-04 팀 결정)
+ * - orderStatusCode/itemStatusCode/receptionStatusCode 는 admin 공통코드가 아니라 서비스 내부 Enum입니다.
+ *   (common.status 패키지 — 2026-08-04 팀 결정)
  */
 @Service
 @RequiredArgsConstructor
@@ -166,7 +166,7 @@ public class LabOrderService {
 
     /**
      * ⚠ 임시 채번 로직입니다. 실제 접수번호 채번 규칙(부서별 접두어, 일자별 시퀀스 등)이
-     *   정해지면 반드시 교체해야 합니다.
+     *   정해지면 교체해야 합니다.
      */
     private String generateReceptionNo() {
         return "LR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();

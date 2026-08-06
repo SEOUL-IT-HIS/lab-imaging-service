@@ -1,4 +1,4 @@
-package kr.co.seoulit.his.labimagingservice.common;
+package kr.co.seoulit.his.labimagingservice.common.status;
 
 /**
  * 접수상태코드 (LAB_RECEPTION / IMAGE_RECEPTION.reception_status_code)

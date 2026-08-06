@@ -1,4 +1,4 @@
-package kr.co.seoulit.his.labimagingservice.common;
+package kr.co.seoulit.his.labimagingservice.common.status;
 
 /**
  * 오더상세 항목상태코드 (LAB_ORDER_ITEM / IMAGE_ORDER_ITEM.item_status_code)

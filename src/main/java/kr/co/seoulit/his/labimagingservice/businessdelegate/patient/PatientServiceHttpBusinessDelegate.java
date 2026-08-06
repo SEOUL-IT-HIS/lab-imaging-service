@@ -18,13 +18,13 @@ import org.springframework.web.client.RestTemplate;
  * 호출 흐름이 2단계인 이유:
  *   검사/영상 도메인은 환자번호(patientNo)만 보유하는데, 유효성 검증 API는 내부 식별자(patientId)
  *   기준이라 바로 부를 수 없다. 그래서
- *     1) GET /api/v1/patients/by-number/{patientNo} → patientId 확보 (404면 존재하지 않는 환자)
- *     2) GET /api/v1/patients/{patientId}/validation → 존재·활성·통합(MERGED) 여부까지 확인
+ *     1) GET /api/patients/by-number/{patientNo} → patientId 확보 (404면 존재하지 않는 환자)
+ *     2) GET /api/patients/{patientId}/validation → 존재·활성·통합(MERGED) 여부까지 확인
  *   순서로 호출한다. 1단계만으로도 "존재 여부"는 걸러지지만, 비활성/통합된 환자를 잡으려면
  *   2단계가 필요하다 (2026-08 팀 결정).
  *
  * ⚠ 오더 접수 1건당 원격 호출이 2회 발생한다. 목록 화면처럼 여러 건을 다뤄야 하면
- *   POST /api/v1/patients/batch-query (일괄 조회)로 바꿔야 한다. (개발표준가이드 14.1 배치 조회)
+ *   POST /api/patients/batch-query (일괄 조회)로 바꿔야 한다. (개발표준가이드 14.1 배치 조회)
  *
  * ⚠ 404(= 유효하지 않은 환자)만 false로 흡수한다. 타임아웃/커넥션 거부/5xx 등은 예외를 그대로
  *   전파시켜 접수를 실패시킨다(fail-closed). 환자서비스가 죽었을 때 검증을 통과시켜 버리면

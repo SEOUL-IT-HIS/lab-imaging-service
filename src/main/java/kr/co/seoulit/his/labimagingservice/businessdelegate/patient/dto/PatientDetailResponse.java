@@ -1,6 +1,5 @@
 package kr.co.seoulit.his.labimagingservice.businessdelegate.patient.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,11 +15,15 @@ import lombok.Setter;
  *
  * ⚠ patientId의 실제 JSON 타입(숫자/문자열)이 명세서에 명시돼 있지 않아 String으로 받는다.
  *   Jackson이 숫자도 문자열로 변환해주므로 어느 쪽이 와도 동작한다.
+ *
+ * ⚠ 응답에 오는 나머지 환자 필드를 매핑하지 않은 건 의도한 것이다.
+ *   클래스에 없는 필드는 Spring Boot의 Jackson 기본 설정(FAIL_ON_UNKNOWN_PROPERTIES 비활성)이
+ *   조용히 무시한다. 상세 설명은 ExternalApiResponse 주석 참고.
+ *    @JsonIgnoreProperties 전역설정이 바뀌면 어노테이션 선언을 별도로 하여 방어한다.
  */
 @Getter
 @Setter
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class PatientDetailResponse {
 
     private String patientId;

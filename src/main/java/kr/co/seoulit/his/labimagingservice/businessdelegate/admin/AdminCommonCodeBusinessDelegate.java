@@ -22,14 +22,6 @@ import java.util.Map;
 public interface AdminCommonCodeBusinessDelegate {
 
     /**
-     * 특정 공통코드 그룹의 유효 코드값 목록을 조회한다.
-     *
-     * @param groupCode 코드그룹ID (예: TRANSMIT_STATUS_CD)
-     * @return 사용 중인 코드값 목록
-     */
-    List<String> getCodeValues(String groupCode);
-
-    /**
      * 전체 공통코드를 그룹별로 조회한다. (CommonCodeCache 적재용 벌크 조회)
      *
      * ⚠ admin 서비스에 "모든 그룹 일괄 조회" 단일 엔드포인트가 없어, 구현체는
@@ -39,13 +31,4 @@ public interface AdminCommonCodeBusinessDelegate {
      * @return 코드그룹ID → 사용 중인 코드값 목록. 조회 불가 시 빈 Map(null 아님)
      */
     Map<String, List<String>> getAllCodeValues();
-
-    /**
-     * 코드값이 해당 그룹 내 유효한 값인지 확인한다.
-     *
-     * @param groupCode 코드그룹ID
-     * @param code      확인할 코드값
-     * @return 유효하면 true
-     */
-    boolean isValidCode(String groupCode, String code);
 }

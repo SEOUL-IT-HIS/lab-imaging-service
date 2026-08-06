@@ -52,20 +52,6 @@ public class AdminCommonCodeHttpBusinessDelegate implements AdminCommonCodeBusin
         this.baseUrl = "http://" + host + ":" + port;
     }
 
-    @Override
-    public List<String> getCodeValues(String groupCode) {
-        CommonCodeGroupResponse group = findUsableGroups().stream()
-                .filter(g -> g.getGroupCode().equals(groupCode))
-                .findFirst()
-                .orElse(null);
-
-        if (group == null) {
-            log.warn("사용 중인 공통코드 그룹을 찾지 못했습니다. groupCode={}", groupCode);
-            return List.of();
-        }
-        return findUsableCodeValues(group.getGroupId());
-    }
-
     /**
      * 전체 공통코드를 그룹별로 적재한다.
      *
@@ -80,19 +66,6 @@ public class AdminCommonCodeHttpBusinessDelegate implements AdminCommonCodeBusin
             result.put(group.getGroupCode(), findUsableCodeValues(group.getGroupId()));
         }
         return result;
-    }
-
-    /**
-     * ⚠ 단건 검증용이 아니라 "캐시 없이 즉시 확인해야 하는 예외 상황"용이다.
-     *   일반적인 코드값 검증은 CommonCodeCache.isValid(...)를 쓴다 — 여기를 호출하면
-     *   검증 1회마다 admin 서비스로 원격 호출이 2회 나간다.
-     */
-    @Override
-    public boolean isValidCode(String groupCode, String code) {
-        if (code == null) {
-            return false;
-        }
-        return getCodeValues(groupCode).contains(code);
     }
 
     /** 사용중(useYn='Y')이고 groupCode/groupId가 온전한 그룹만 반환. */

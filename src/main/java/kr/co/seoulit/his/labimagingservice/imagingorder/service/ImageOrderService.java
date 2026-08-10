@@ -77,10 +77,10 @@ public class ImageOrderService {
     public ImageOrderSummaryDto createOrder(ImageOrderCreateRequestDto request) {
 
         // 환자 유효성 검증 — 상세 동작은 LabOrderService.createOrder 주석 참고
-        if (!patientServiceBusinessDelegate.validatePatient(request.getPatientNo())) {
+        if (!patientServiceBusinessDelegate.validatePatient(request.getPatientId())) {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB998,
-                    "유효하지 않은 환자번호입니다. (patientNo=" + request.getPatientNo() + ")"
+                    "유효하지 않은 환자ID입니다. (patientId=" + request.getPatientId() + ")"
             );
         }
 
@@ -102,7 +102,9 @@ public class ImageOrderService {
                 .imageOrderNo(request.getImageOrderNo())
                 .systemCode(request.getSystemCode())
                 .patientNo(request.getPatientNo())
+                .patientId(request.getPatientId())
                 .physicianNo(request.getPhysicianNo())
+                .physicianId(request.getPhysicianId())
                 .treatTypeCode(request.getTreatTypeCode())
                 .urgencyYn(request.getUrgencyYn())
                 .orderStatusCode(OrderStatus.RECEIVED.name())
@@ -120,6 +122,7 @@ public class ImageOrderService {
         ImageReceptionEntity reception = ImageReceptionEntity.builder()
                 .receptionNo(generateReceptionNo()) // TODO: 실제 채번 규칙 확정 필요
                 .patientNo(request.getPatientNo())
+                .patientId(request.getPatientId())
                 .receptionStatusCode(ReceptionStatus.ACCEPTED.name())
                 .urgencyYn(request.getUrgencyYn())
                 .receivedById(request.getReceivedById())

@@ -39,11 +39,21 @@ public class ImageOrderEntity extends BaseAuditEntity {
     @Column(name = "system_code", length = 10, nullable = false)
     private String systemCode;
 
+    /** 화면 표시용 업무번호. 검증·참조에는 쓰지 않는다. */
     @Column(name = "patient_no", length = 20, nullable = false)
     private String patientNo;
 
+    /** patient-service 내부 식별자. 참조/검증(API 호출)은 이 값을 쓴다. */
+    @Column(name = "patient_id", length = 36)
+    private String patientId;
+
+    /** 화면 표시용 업무번호. */
     @Column(name = "physician_no", length = 20)
     private String physicianNo;
+
+    /** 처방의 내부 식별자. 참조용. */
+    @Column(name = "physician_id", length = 36)
+    private String physicianId;
 
     @Column(name = "treat_type_code", length = 10, nullable = false)
     private String treatTypeCode;
@@ -64,12 +74,15 @@ public class ImageOrderEntity extends BaseAuditEntity {
     private List<ImageReceptionEntity> receptions = new ArrayList<>();
 
     @Builder
-    public ImageOrderEntity(String imageOrderNo, String systemCode, String patientNo, String physicianNo,
+    public ImageOrderEntity(String imageOrderNo, String systemCode, String patientNo, String patientId,
+                             String physicianNo, String physicianId,
                              String treatTypeCode, String urgencyYn, String orderStatusCode, LocalDateTime receivedAt) {
         this.imageOrderNo = imageOrderNo;
         this.systemCode = systemCode;
         this.patientNo = patientNo;
+        this.patientId = patientId;
         this.physicianNo = physicianNo;
+        this.physicianId = physicianId;
         this.treatTypeCode = treatTypeCode;
         this.urgencyYn = urgencyYn;
         this.orderStatusCode = orderStatusCode;

@@ -5,20 +5,20 @@ package kr.co.seoulit.his.labimagingservice.businessdelegate.patient;
  *
  * 구현체: PatientServiceHttpBusinessDelegate (RestTemplate)
  *
- * 참고 API(Patient_Service_API_명세서_완성본.xlsx 기준 — base path는 /api/v1):
- *   GET /api/patients/by-number/{patientNo}     환자번호 기준 단건 조회
+ * 참고 API(Patient_Service_API_명세서_완성본.xlsx 기준):
  *   GET /api/patients/{patientId}/validation    환자 유효성 검증(존재·활성·통합 여부)
  *
- * ⚠ 유효성 검증 API는 patientNo가 아니라 내부 식별자 patientId 기준이라,
- *   구현체는 by-number 조회로 patientId를 얻은 뒤 validation을 호출하는 2단계 방식이다.
+ * ⚠ 검증은 환자번호(patientNo)가 아니라 내부 식별자(patientId) 기준이다.
+ *   2026-08-06 참조 컬럼을 patient_id 로 전환하면서 호출부가 patientId를 직접 넘긴다.
+ *   patient_no 는 화면 표시용으로만 남아 있고 검증에는 쓰지 않는다.
  */
 public interface PatientServiceBusinessDelegate {
 
     /**
-     * 환자번호 유효성(존재 여부) 확인.
+     * 환자 유효성(존재·활성·통합 여부) 확인.
      *
-     * @param patientNo 환자번호
+     * @param patientId 환자ID (patient-service 내부 식별자)
      * @return 유효한 환자면 true
      */
-    boolean validatePatient(String patientNo);
+    boolean validatePatient(String patientId);
 }

@@ -45,12 +45,21 @@ public class LabOrderCreateRequestDto {
 
     @NotBlank
     @Size(max = 20)
-    @Schema(description = "환자번호 (참조 식별자)", example = "P00012345", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "환자번호 (화면 표시용 업무번호)", example = "P00012345", requiredMode = Schema.RequiredMode.REQUIRED)
     private String patientNo;
 
+    @NotBlank
+    @Size(max = 36)
+    @Schema(description = "환자ID (patient-service 내부 식별자, 참조/검증용)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f", requiredMode = Schema.RequiredMode.REQUIRED)
+    private String patientId;
+
     @Size(max = 20)
-    @Schema(description = "처방의번호 (참조 식별자, NULL 허용)", example = "D0032")
+    @Schema(description = "처방의번호 (화면 표시용 업무번호, NULL 허용)", example = "D0032")
     private String physicianNo;
+
+    @Size(max = 36)
+    @Schema(description = "처방의ID (참조용, NULL 허용)", example = "d0a1b2c3-4d5e-6f70-8192-a3b4c5d6e7f8")
+    private String physicianId;
 
     @NotBlank
     @Size(max = 10)

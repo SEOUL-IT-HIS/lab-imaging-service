@@ -34,8 +34,13 @@ public class LabReceptionEntity extends BaseAuditEntity {
     @JoinColumn(name = "lab_order_id", nullable = false)
     private LabOrderEntity labOrder;
 
+    /** 화면 표시용 업무번호. 검증·참조에는 쓰지 않는다. */
     @Column(name = "patient_no", length = 20, nullable = false)
     private String patientNo;
+
+    /** patient-service 내부 식별자. 참조/검증(API 호출)은 이 값을 쓴다. */
+    @Column(name = "patient_id", length = 36)
+    private String patientId;
 
     @Column(name = "reception_status_code", length = 10, nullable = false)
     private String receptionStatusCode;
@@ -56,10 +61,11 @@ public class LabReceptionEntity extends BaseAuditEntity {
     private List<LabScheduleEntity> schedules = new ArrayList<>();
 
     @Builder
-    public LabReceptionEntity(String receptionNo, String patientNo, String receptionStatusCode,
+    public LabReceptionEntity(String receptionNo, String patientNo, String patientId, String receptionStatusCode,
                                String urgencyYn, String receivedById, String ackSentYn, LocalDateTime ackSentAt) {
         this.receptionNo = receptionNo;
         this.patientNo = patientNo;
+        this.patientId = patientId;
         this.receptionStatusCode = receptionStatusCode;
         this.urgencyYn = urgencyYn;
         this.receivedById = receivedById;

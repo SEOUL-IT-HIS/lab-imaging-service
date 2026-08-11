@@ -91,7 +91,7 @@ public class AdminCommonCodeHttpBusinessDelegate implements AdminCommonCodeBusin
     }
 
     /** 그룹의 사용중(useYn='Y') 코드값 목록. */
-    private List<String> findUsableCodeValues(Long groupId) {
+    private List<String> findUsableCodeValues(String groupId) {
         try {
             ResponseEntity<ExternalApiResponse<List<CommonCodeItemResponse>>> response = restTemplate.exchange(
                     baseUrl + CODE_ITEM_LIST_PATH,

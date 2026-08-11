@@ -26,7 +26,7 @@ import lombok.Setter;
 public class CommonCodeGroupResponse {
 
     /** 항목 조회 API의 쿼리 파라미터로 쓰이는 내부 식별자 */
-    private Long groupId;
+    private String groupId;
 
     /** 코드그룹ID (예: DEPT_CD) — 이 서비스가 검증에 쓰는 키 */
     private String groupCode;

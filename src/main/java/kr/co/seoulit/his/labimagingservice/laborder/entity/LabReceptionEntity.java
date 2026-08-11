@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.laborder.entity;
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
 import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -60,6 +61,9 @@ public class LabReceptionEntity extends BaseAuditEntity {
     @OneToMany(mappedBy = "labReception", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<LabScheduleEntity> schedules = new ArrayList<>();
 
+    @OneToMany(mappedBy = "labReception", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<SpecimenEntity> specimens = new ArrayList<>();
+
     @Builder
     public LabReceptionEntity(String receptionNo, String patientNo, String patientId, String receptionStatusCode,
                                String urgencyYn, String receivedById, String ackSentYn, LocalDateTime ackSentAt) {
@@ -82,6 +86,10 @@ public class LabReceptionEntity extends BaseAuditEntity {
     public void addSchedule(LabScheduleEntity schedule) {
         this.schedules.add(schedule);
         schedule.assignLabReception(this);
+    }
+    public void addSpecimen(SpecimenEntity specimen) {
+        this.specimens.add(specimen);
+        specimen.assignLabReception(this);
     }
     void assignLabOrder(LabOrderEntity labOrder) {
         this.labOrder = labOrder;

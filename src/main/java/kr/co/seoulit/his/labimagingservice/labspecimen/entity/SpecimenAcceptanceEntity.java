@@ -1,0 +1,69 @@
+package kr.co.seoulit.his.labimagingservice.labspecimen.entity;
+
+import jakarta.persistence.*;
+import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * 검체 인수/적합성 판정 (SPECIMEN_ACCEPTANCE)
+ * 대응 유스케이스: UC-SPC-04 검체적합성판정 (Jira ZP2-8)
+ * ⚠ fitness_status_code(검체상태코드)는 admin 공통코드가 아니라 서비스 내부 Enum으로 관리한다.
+ *   (2026-08-04 공통코드 재분류 회의 결정 — 적합/부적합 이진값이라 운영 중 변할 여지가 없음)
+ *   이 도메인에서만 쓰므로 common/status 가 아니라 labspecimen 아래에 두는 것이 맞다.
+ */
+@Entity
+@Table(name = "SPECIMEN_ACCEPTANCE")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class SpecimenAcceptanceEntity extends BaseAuditEntity {
+
+    @Id
+    @Column(name = "specimen_acceptance_id", length = 36, nullable = false, updatable = false)
+    private String specimenAcceptanceId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "specimen_id", nullable = false, unique = true)
+    private SpecimenEntity specimen;
+
+    @Column(name = "accepted_at", nullable = false )
+    private LocalDateTime acceptedAt;
+
+    @Column(name = "accepted_by_id", length = 20, nullable = false )
+    private String acceptedById;
+
+    @Column(name = "fitness_status_code", length = 10, nullable = false )
+    private String fitnessStatusCode;
+
+    @Column(name = "unfit_reason_code", length = 10 )
+    private String unfitReasonCode;
+
+    @Column(name = "recollection_requested_yn", columnDefinition = "CHAR(1)", nullable = false)
+    private String recollectionRequestedYn;
+
+    @Builder
+    public SpecimenAcceptanceEntity(LocalDateTime acceptedAt, String acceptedById, String fitnessStatusCode,
+                                    String unfitReasonCode, String recollectionRequestedYn) {
+        this.acceptedAt = acceptedAt;
+        this.acceptedById = acceptedById;
+        this.fitnessStatusCode = fitnessStatusCode;
+        this.unfitReasonCode = unfitReasonCode;
+        this.recollectionRequestedYn = recollectionRequestedYn;
+    }
+
+    @PrePersist
+    private void generateId() {
+        if (this.specimenAcceptanceId == null) {
+            this.specimenAcceptanceId = UUID.randomUUID().toString();
+        }
+    }
+
+    public void assignSpecimen(SpecimenEntity specimenEntity) {
+        this.specimen = specimenEntity;
+    }
+}

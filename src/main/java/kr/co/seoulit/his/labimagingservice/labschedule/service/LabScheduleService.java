@@ -35,7 +35,7 @@ public class LabScheduleService {
                 .confirmedById(request.getConfirmedById())
                 .latestYn("Y")
                 .build();
-        reception.addSchedule(schedule);
+        schedule.assignLabReception(reception);
 
         LabScheduleEntity saved = labScheduleRepository.save(schedule);
         return labScheduleMapper.toResponse(saved);
@@ -69,7 +69,7 @@ public class LabScheduleService {
                 .confirmedById(request.getConfirmedById())
                 .latestYn("Y")
                 .build();
-        reception.addSchedule(reschedule);
+        reschedule.assignLabReception(reception);
 
         LabScheduleEntity saved = labScheduleRepository.save(reschedule);
         return labScheduleMapper.toResponse(saved);

@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.entity;
 
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ConsentEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -72,6 +73,22 @@ public class ImageOrderEntity extends BaseAuditEntity {
 
     @OneToMany(mappedBy = "imageOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ImageReceptionEntity> receptions = new ArrayList<>();
+
+    /**
+     * 조영제/침습검사 동의서 이력. (UC-IMG-05, 오더 1건에 재동의 이력 여러 건 가능)
+     *
+     * ⚠ 위 두 컬렉션과 달리 cascade / orphanRemoval 을 걸지 않았다.
+     *   orderItems·receptions 는 오더 접수와 같은 트랜잭션에서 함께 생성되지만,
+     *   동의서는 접수 이후 별도 시점에 ConsentService 가 등록한다. 저장은
+     *   ConsentRepository 가 담당하므로 이 컬렉션은 조회(탐색) 용도다.
+     *   특히 orphanRemoval 은 컬렉션에서 빼는 것만으로 동의 기록이 삭제되는데,
+     *   동의서는 의무기록 성격이라 그런 경로를 열어두면 안 된다.
+     *
+     * ⚠ 저장 시 연관관계는 ConsentEntity#assignImageOrder 로 주인(owning) 쪽에서 맺는다.
+     *   이 컬렉션은 같은 트랜잭션 안에서 즉시 갱신되지 않으니 재조회해야 반영된다.
+     */
+    @OneToMany(mappedBy = "imageOrder", fetch = FetchType.LAZY)
+    private List<ConsentEntity> consents = new ArrayList<>();
 
     @Builder
     public ImageOrderEntity(String imageOrderNo, String systemCode, String patientNo, String patientId,

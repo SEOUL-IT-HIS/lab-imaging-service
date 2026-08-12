@@ -34,5 +34,5 @@ public class SpecimenAcceptanceRequestDto {
     @NotBlank
     @Size(max = 20)
     @Schema(description = "검체인수자ID", example = "STF00021")
-    private String labReceptionId;
+    private String acceptedById;
 }

@@ -24,37 +24,24 @@ import java.time.LocalDateTime;
 @Schema(description = "검체 인수/적합성 판정 응답 요약")
 public class SpecimenAcceptanceSummaryDto {
 
-    @NotBlank
-    @Size(max = 36)
     @Schema(description = "검체인수판정ID", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f", requiredMode = Schema.RequiredMode.REQUIRED)
     private String specimenAcceptanceId;
 
-    @NotBlank
-    @Size(max = 36)
     @Schema(description = "검체ID", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f", requiredMode = Schema.RequiredMode.REQUIRED)
     private String specimenId;
 
-    @NotNull
     @Schema(description = "검체 인수 일시", example = "2026-07-25T09:30:00")
     private LocalDateTime acceptedAt;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "검사인수자ID", example = "STF00021")
-    private String labReceptionId;
+    @Schema(description = "검체인수자ID", example = "STF00021")
+    private String acceptedById;
 
-    @NotBlank
-    @Size(max = 10)
     @Schema(description = "적합상태코드", example = "적합/부적합")
     private String fitnessStatusCode;
 
-    @NotBlank
-    @Size(max = 10)
     @Schema(description = "부적합사유코드", example = "검체부족")
     private String unfitReasonCode;
 
-    @NotBlank
-    @YnValue
     @Schema(description = "재채취요청여부 (Y/N)", example = "N")
     private String recollectionRequestedYn;
 }

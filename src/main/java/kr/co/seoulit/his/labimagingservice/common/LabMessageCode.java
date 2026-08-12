@@ -36,6 +36,9 @@ public final class LabMessageCode {
     public static final String LAB015 = "LAB015"; // 영상 촬영 접수 정보를 찾을 수 없습니다.
     public static final String LAB016 = "LAB016"; // 재등록할 기존 영상 일정이 없습니다.
 
+    // ---- 검체 정보 등록/조회 ----
+    public static final String LAB018 = "LAB018"; // 검체 정보가 등록되었습니다.
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

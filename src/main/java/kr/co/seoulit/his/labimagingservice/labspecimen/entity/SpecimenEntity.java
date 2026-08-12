@@ -37,6 +37,16 @@ public class SpecimenEntity extends BaseAuditEntity {
     @Column(name = "specimen_container_code", length = 10, nullable = false )
     private String specimenContainerCode;
 
+    /**
+     * ⚠ @Enumerated(EnumType.STRING) 은 빠뜨리면 안 된다.
+     *   JPA 기본값은 ORDINAL 이라 "BLOOD" 대신 선언 순서 숫자(0,1,2...)로 저장된다.
+     *   그러면 나중에 enum 상수 순서를 바꾸거나 중간에 하나 끼워 넣는 순간
+     *   이미 저장된 행의 의미가 통째로 어긋난다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specimen_type_code", length = 10, nullable = false )
+    private SpecimenType specimenTypeCode;
+
     @Column(name = "patient_no", length = 20, nullable = false )
     private String patientNo;
 
@@ -53,11 +63,12 @@ public class SpecimenEntity extends BaseAuditEntity {
     private SpecimenAcceptanceEntity specimenAcceptance;
 
     @Builder
-    public SpecimenEntity(String specimenBarcode, String specimenContainerCode,
+    public SpecimenEntity(String specimenBarcode, String specimenContainerCode, SpecimenType specimenTypeCode,
                           String patientNo, String patientId, LocalDateTime collectedAt, String collectedById) {
 
         this.specimenBarcode = specimenBarcode;
         this.specimenContainerCode = specimenContainerCode;
+        this.specimenTypeCode = specimenTypeCode;
         this.patientNo = patientNo;
         this.patientId = patientId;
         this.collectedAt = collectedAt;

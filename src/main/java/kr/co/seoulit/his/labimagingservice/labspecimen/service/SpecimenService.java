@@ -1,8 +1,20 @@
 package kr.co.seoulit.his.labimagingservice.labspecimen.service;
 
+import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
+import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenSummaryDto;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
+import kr.co.seoulit.his.labimagingservice.labspecimen.mapper.SpecimenMapper;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 /**
  * 검체 식별관리 서비스
@@ -16,16 +28,50 @@ import org.springframework.stereotype.Service;
  *   - 검체 식별정보 필수값/유효성 검증 (ZP2-66)
  *   - 검체 바코드 발행 (ZP2-65) — 채번 규칙 확정 필요
  *   - 검체 이력 조회 (ZP2-79)
- *
- * TODO: 공통코드 검증 연결 — specimenContainerCode 는 SPECIMEN_CONTAINER_CD 그룹이다.
- *       CommonCodeCache 를 주입해 isValid("SPECIMEN_CONTAINER_CD", ...) 로 검증할 것.
- *       (LabOrderService.validateCode 참고. 실패 시 LAB017)
- * TODO: 환자 검증이 필요하면 PatientServiceBusinessDelegate.validatePatient(patientId) 사용.
- *       단 접수 시점에 이미 검증했다면 중복 호출은 피할 것.
+ * 환자 검증 PatientServiceBusinessDelegate.validatePatient(patientId) 미사용.
+ *       접수 시점에 이미 검증했으므로 중복 호출을 피한다.
  */
 @Service
 @RequiredArgsConstructor
 public class SpecimenService {
 
     private final SpecimenRepository specimenRepository;
+    private final CommonCodeCache commonCodeCache;
+    private final SpecimenMapper specimenMapper;
+    private final LabReceptionRepository labReceptionRepository;
+
+    @Transactional
+    public SpecimenSummaryDto createSpecimen(SpecimenCreateRequestDto request){
+
+        LabReceptionEntity reception = labReceptionRepository.findById(request.getLabReceptionId())
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB013, "검사 접수 정보를 찾을 수 없습니다."));
+
+        validateCode("SPECIMEN_CONTAINER_CD", request.getSpecimenContainerCode(), "검체용기코드");
+
+        SpecimenEntity specimen = SpecimenEntity.builder()
+                .specimenBarcode(generateSpecimenBarcode())
+                .specimenContainerCode(request.getSpecimenContainerCode())
+                .specimenTypeCode(request.getSpecimenType())
+                .patientId(request.getPatientId())
+                .patientNo(request.getPatientNo())
+                .collectedAt(request.getCollectedAt())
+                .collectedById(request.getCollectedById())
+                .build();
+        specimen.assignLabReception(reception);
+        SpecimenEntity saved = specimenRepository.save(specimen);
+        return specimenMapper.toResponse(saved);
+
+    }
+    private void validateCode(String groupCode, String code, String fieldLabel) {
+        if (!commonCodeCache.isValid(groupCode, code)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB017,
+                    "유효하지 않은 " + fieldLabel + "입니다. (" + groupCode + "=" + code + ")"
+            );
+        }
+    }
+    private String generateSpecimenBarcode() {
+        return "SP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
 }

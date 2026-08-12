@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,6 +39,11 @@ public class SpecimenCreateRequestDto {
     @Size(max = 10)
     @Schema(description = "검체용기코드", example = "튜브")
     private String specimenContainerCode;
+
+    @NotNull
+    @Size(max = 10)
+    @Schema(description = "검체종류", example = "BLOOD", requiredMode = Schema.RequiredMode.REQUIRED)
+    private SpecimenType specimenType;
 
     @NotBlank
     @Size(max = 20)

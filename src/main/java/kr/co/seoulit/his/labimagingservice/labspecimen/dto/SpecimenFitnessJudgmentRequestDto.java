@@ -31,7 +31,7 @@ public class SpecimenFitnessJudgmentRequestDto {
     @Schema(description = "적합상태코드", example = "적합/부적합")
     private String fitnessStatusCode;
 
-    @NotBlank
+
     @Size(max = 10)
     @Schema(description = "부적합사유코드", example = "검체부족")
     private String unfitReasonCode;

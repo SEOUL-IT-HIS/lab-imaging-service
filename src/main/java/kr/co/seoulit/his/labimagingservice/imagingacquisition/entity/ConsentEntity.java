@@ -2,36 +2,28 @@ package kr.co.seoulit.his.labimagingservice.imagingacquisition.entity;
 
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
  * 동의서 (CONSENT)
  * 대응 유스케이스: UC-IMG-05 조영제/침습검사 동의 등록 (Jira ZP2-28)
  *
- * ⚠ 3차 스프린트 골격입니다. PK/감사컬럼만 매핑돼 있고 업무 컬럼은 아직 없습니다.
- *
- * TODO: 아래 컬럼을 DDL 그대로 추가할 것 (lab_imaging_schema_생성.sql 264행)
- *   image_order_id         VARCHAR2(36) NOT NULL  → IMAGE_ORDER 참조 (@ManyToOne)
- *   patient_no             VARCHAR2(20) NOT NULL  (화면 표시용)
- *   patient_id             VARCHAR2(36)           (참조/검증용 — 2026-08-10 추가)
- *   consent_type_code      VARCHAR2(10) NOT NULL  (공통코드 CONSENT_TYPE_CD)
- *   document_template_id   VARCHAR2(36) NOT NULL  (admin DOCUMENT_TEMPLATE 논리 참조, DB FK 아님)
- *   consent_yn             CHAR(1)      NOT NULL  ('Y'/'N', @YnValue 대상)
- *   consent_dt             DATE         NOT NULL
- *   signed_by_name         VARCHAR2(50) NOT NULL
- *   witness_id             VARCHAR2(20) NOT NULL
- *   withdrawn_yn           CHAR(1)      NOT NULL  ('Y'/'N')
- *   withdrawn_at           TIMESTAMP
- *   withdrawn_reason_code  VARCHAR2(10)           (공통코드 CONSENT_WITHDRAW_CD)
- *
  * ⚠ 전자문서(파일)는 저장하지 않는다. 빈 양식은 admin-service 문서양식관리가 소유하고,
  *   이 서비스는 동의 여부·서명자·확인일시 등 업무 데이터만 보유한다. (2026-07-11 문서관리 회의)
+ * ⚠ document_template_id 는 admin-service DOCUMENT_TEMPLATE 참조지만 DB FK가 아니라
+ *   서비스 간 논리적 참조다. 그래서 @ManyToOne 이 아니라 단순 컬럼으로 둔다.
  * ⚠ signed_by_name 은 타 서비스 소유 데이터의 스냅샷이 아니라 이 화면에서 직접 입력·확정된
  *   원본 값이므로 저장하는 것이 맞다. (개발표준가이드 14.1 스냅샷 금지의 예외)
+ * ⚠ consent_dt 만 DDL 타입이 DATE 다(나머지 일시 컬럼은 TIMESTAMP). 논리명도 "동의일자"라
+ *   LocalDateTime 이 아니라 LocalDate 로 매핑했다.
  */
 @Entity
 @Table(name = "CONSENT")
@@ -43,10 +35,79 @@ public class ConsentEntity extends BaseAuditEntity {
     @Column(name = "consent_id", length = 36, nullable = false, updatable = false)
     private String consentId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "image_order_id", nullable = false)
+    private ImageOrderEntity imageOrder;
+
+    @Column(name = "patient_no", length = 20, nullable = false)
+    private String patientNo;
+
+    @Column(name = "patient_id", length = 36)
+    private String patientId;
+
+    @Column(name = "consent_type_code", length = 10, nullable = false)
+    private String consentTypeCode;
+
+    @Column(name = "document_template_id", length = 36, nullable = false)
+    private String documentTemplateId;
+
+    @Column(name = "consent_yn", columnDefinition = "CHAR(1)", nullable = false)
+    private String consentYn;
+
+    @Column(name = "consent_dt", nullable = false)
+    private LocalDate consentDt;
+
+    @Column(name = "signed_by_name", length = 50, nullable = false)
+    private String signedByName;
+
+    @Column(name = "witness_id", length = 20, nullable = false)
+    private String witnessId;
+
+    @Column(name = "withdrawn_yn", columnDefinition = "CHAR(1)", nullable = false)
+    private String withdrawnYn;
+
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;
+
+    @Column(name = "withdrawn_reason_code", length = 10)
+    private String withdrawnReasonCode;
+
+    @Builder
+    public ConsentEntity(String patientNo, String patientId, String consentTypeCode,
+                         String documentTemplateId, String consentYn, LocalDate consentDt,
+                         String signedByName, String witnessId, String withdrawnYn) {
+        this.patientNo = patientNo;
+        this.patientId = patientId;
+        this.consentTypeCode = consentTypeCode;
+        this.documentTemplateId = documentTemplateId;
+        this.consentYn = consentYn;
+        this.consentDt = consentDt;
+        this.signedByName = signedByName;
+        this.witnessId = witnessId;
+        this.withdrawnYn = withdrawnYn;
+    }
+
     @PrePersist
     private void generateId() {
         if (this.consentId == null) {
             this.consentId = UUID.randomUUID().toString();
         }
+    }
+
+    public void assignImageOrder(ImageOrderEntity imageOrder) {
+        this.imageOrder = imageOrder;
+    }
+
+    /**
+     * 동의 철회 처리. (withdrawn_yn = 'Y' 로 전환하고 철회 시각·사유를 기록)
+     *
+     * ⚠ 기존 행을 UPDATE 하는 방식이다. 일정(LAB_SCHEDULE)의 latest_yn 처럼 신규 행을
+     *   INSERT 해 이력을 남기는 방식과 다르다. withdrawn_* 컬럼이 같은 행에 있는 DDL 구조를
+     *   따른 것이고, 이력 보존이 필요하다고 결론나면 이 메서드부터 바뀌어야 한다.
+     */
+    public void withdraw(String withdrawnReasonCode, LocalDateTime withdrawnAt) {
+        this.withdrawnYn = "Y";
+        this.withdrawnReasonCode = withdrawnReasonCode;
+        this.withdrawnAt = withdrawnAt;
     }
 }

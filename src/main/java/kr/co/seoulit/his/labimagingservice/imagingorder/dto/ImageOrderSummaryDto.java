@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * 영상 오더 접수 응답
  * API: POST /image-orders
@@ -37,4 +39,11 @@ public class ImageOrderSummaryDto {
 
     @Schema(description = "접수상태코드", example = "ACCEPTED")
     private String receptionStatusCode;
+
+    /**
+     * 최종(latest_yn='Y') 일정의 촬영 예정일시. 일정 미등록 접수면 null.
+     * 목록에서 "언제로 잡혔는지"를 보여주고, 등록/재등록 버튼을 가르는 기준으로도 쓴다.
+     */
+    @Schema(description = "촬영 예정일시 (일정 미등록이면 null)", example = "2026-08-20T09:30:00")
+    private LocalDateTime scheduledAt;
 }

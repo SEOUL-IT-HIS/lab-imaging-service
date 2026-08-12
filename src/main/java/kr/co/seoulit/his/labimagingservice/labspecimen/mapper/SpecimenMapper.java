@@ -6,6 +6,8 @@ import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 /**
  * 검체 Entity → 응답 DTO 매핑.
  * ⚠ 메서드가 하나도 없으면 MapStruct 가 빈 구현체를 생성한다. 컴파일은 통과하지만
@@ -18,5 +20,5 @@ public interface SpecimenMapper {
     @Mapping(target = "specimenType", source = "specimenTypeCode")
     SpecimenSummaryDto toResponse(SpecimenEntity saved);
 
-
+    List<SpecimenSummaryDto> toResponseList(List<SpecimenEntity> specimens);
 }

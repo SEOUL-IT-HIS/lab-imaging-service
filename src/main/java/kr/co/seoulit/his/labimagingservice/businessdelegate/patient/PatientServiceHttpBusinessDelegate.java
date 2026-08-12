@@ -33,7 +33,7 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class PatientServiceHttpBusinessDelegate implements PatientServiceBusinessDelegate {
 
-    private static final String PATIENT_VALIDATION_PATH = "/api/patients/{patientId}/validation";
+    private static final String PATIENT_VALIDATION_PATH = "/api/patient/{patientId}/validation";
 
     private final RestTemplate restTemplate;
     private final String baseUrl;

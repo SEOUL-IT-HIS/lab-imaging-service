@@ -38,6 +38,8 @@ public final class LabMessageCode {
 
     // ---- 검체 정보 등록/조회 ----
     public static final String LAB018 = "LAB018"; // 검체 정보가 등록되었습니다.
+    public static final String LAB019 = "LAB019"; // 검체 정보 조회에 성공했습니다. (목록/단건 공용)
+    public static final String LAB020 = "LAB020"; // 등록된 검체 정보를 찾을 수 없습니다.
 
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.

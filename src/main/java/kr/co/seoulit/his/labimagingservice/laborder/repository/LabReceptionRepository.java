@@ -38,4 +38,29 @@ public interface LabReceptionRepository extends JpaRepository<LabReceptionEntity
             order by r.createdAt desc
             """)
     List<LabReceptionEntity> findUnscheduledWithLabOrder();
+
+    /**
+     * 일정이 이미 등록된 검사접수 목록. (재조정 대상)
+     * findUnscheduledWithLabOrder 와 not exists / exists 만 다르다.
+     *
+     * ⚠ exists/not exists 를 파라미터로 뒤집는 JPQL 은 읽기 어려워져, 메서드를 나누고
+     *   Service 에서 분기한다.
+     */
+    @Query("""
+            select r from LabReceptionEntity r
+            join fetch r.labOrder
+            where exists (
+                select 1 from LabScheduleEntity s
+                 where s.labReception = r and s.latestYn = 'Y')
+            order by r.createdAt desc
+            """)
+    List<LabReceptionEntity> findScheduledWithLabOrder();
+
+    /** 일정 등록 여부와 무관한 전체 검사접수 목록. */
+    @Query("""
+            select r from LabReceptionEntity r
+            join fetch r.labOrder
+            order by r.createdAt desc
+            """)
+    List<LabReceptionEntity> findAllWithLabOrder();
 }

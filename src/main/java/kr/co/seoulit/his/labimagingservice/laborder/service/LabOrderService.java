@@ -10,6 +10,7 @@ import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderExcept
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderSummaryDto;
+import kr.co.seoulit.his.labimagingservice.laborder.dto.LabReceptionDetailDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
@@ -17,12 +18,16 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.mapper.LabOrderMapper;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
+import kr.co.seoulit.his.labimagingservice.labschedule.repository.LabScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
@@ -57,32 +62,85 @@ public class LabOrderService {
     private final LabOrderMapper labOrderMapper;
     private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
     private final CommonCodeCache commonCodeCache;
+    private final LabScheduleRepository labScheduleRepository;
+
+    /** 최종(현재 유효) 일정 판별값. LAB_SCHEDULE.latest_yn */
+    private static final String LATEST_YN = "Y";
 
     // ------------검사  접수 단건 조회---------------
     @Transactional(readOnly = true)
-    public LabOrderSummaryDto getReceptionByNo(String receptionNo) {
+    public LabReceptionDetailDto getReceptionByNo(String receptionNo) {
         LabReceptionEntity reception = labReceptionRepository.findByReceptionNo(receptionNo)
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB013,
                         "검사접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
-        return labOrderMapper.toResponse(reception.getLabOrder(), reception);
+
+        // 목록과 같은 정보를 보여주기 위해 예정일시도 채운다. (일정 미등록이면 null)
+        LocalDateTime scheduledAt = labScheduleRepository
+                .findByLabReception_LabReceptionIdAndLatestYn(reception.getLabReceptionId(), LATEST_YN)
+                .map(LabScheduleEntity::getScheduledAt)
+                .orElse(null);
+
+        return labOrderMapper.toDetailResponse(reception.getLabOrder(), reception, scheduledAt);
     }
 
     // ------------검사 접수 목록 조회 (미일정 대상)---------------
     /**
-     * 일정등록 대상 = "아직 일정이 없는(미일정)" 검사접수 목록.
+     * 검사접수 목록. 일정 등록 여부로 걸러서 본다.
+     *
+     * @param scheduledYn "N"=미일정(일정등록 대상), "Y"=일정등록됨(재조정 대상), null=전체
+     *
      * - 조회 전용이라 @Transactional(readOnly = true). OSIV 비의존 + flush/dirty-checking 부담 감소.
      * - 결과 0건은 정상적인 빈 목록이므로, 예외를 던지지 않고 [] 를 그대로 반환한다.
      *   (단건 조회는 "못 찾음 = 예외"가 맞지만, 목록은 빈 결과가 정상 케이스다.)
-     * - 미일정 필터와 N+1(join fetch) 방어 설명은 findUnscheduledWithLabOrder() 주석 참고.
+     * - 필터 조건과 N+1(join fetch) 방어 설명은 LabReceptionRepository 주석 참고.
+     *
+     * ⚠ 예정일시(scheduledAt)는 접수 목록을 먼저 뽑은 뒤 IN 절로 한 번에 조회해 붙인다.
+     *   접수마다 일정을 조회하면 행 수만큼 쿼리가 나간다(N+1). 상세는 findLatestScheduledAt 참고.
      *
      * TODO(후속): 환자번호/접수일자/상태코드 등 검색조건, 페이지네이션(Pageable) 필요 시 확장.
      */
     @Transactional(readOnly = true)
-    public List<LabOrderSummaryDto> getReceptions() {
-        return labReceptionRepository.findUnscheduledWithLabOrder().stream()
-                .map(reception -> labOrderMapper.toResponse(reception.getLabOrder(), reception))
+    public List<LabOrderSummaryDto> getReceptions(String scheduledYn) {
+        List<LabReceptionEntity> receptions = findReceptionsBy(scheduledYn);
+        Map<String, LocalDateTime> scheduledAtByReceptionId = findLatestScheduledAt(receptions);
+
+        return receptions.stream()
+                .map(reception -> labOrderMapper.toResponse(
+                        reception.getLabOrder(),
+                        reception,
+                        scheduledAtByReceptionId.get(reception.getLabReceptionId())))
                 .toList();
+    }
+
+    /** scheduledYn 필터에 따라 조회 메서드를 고른다. 값이 없으면 전체. */
+    private List<LabReceptionEntity> findReceptionsBy(String scheduledYn) {
+        if (LATEST_YN.equals(scheduledYn)) {
+            return labReceptionRepository.findScheduledWithLabOrder();
+        }
+        if ("N".equals(scheduledYn)) {
+            return labReceptionRepository.findUnscheduledWithLabOrder();
+        }
+        return labReceptionRepository.findAllWithLabOrder();
+    }
+
+    /**
+     * 접수ID → 최종 일정의 예정일시 맵. 일정이 없는 접수는 맵에 키가 없다(= null 로 응답).
+     * 접수가 0건이면 IN 절 자체가 무의미하므로 쿼리를 보내지 않는다.
+     */
+    private Map<String, LocalDateTime> findLatestScheduledAt(List<LabReceptionEntity> receptions) {
+        if (receptions.isEmpty()) {
+            return Map.of();
+        }
+        List<String> receptionIds = receptions.stream()
+                .map(LabReceptionEntity::getLabReceptionId)
+                .toList();
+
+        return labScheduleRepository
+                .findByLabReception_LabReceptionIdInAndLatestYn(receptionIds, LATEST_YN).stream()
+                .collect(Collectors.toMap(
+                        schedule -> schedule.getLabReception().getLabReceptionId(),
+                        LabScheduleEntity::getScheduledAt));
     }
 
     @Transactional

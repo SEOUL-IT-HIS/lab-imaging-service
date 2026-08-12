@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 /**
  * 검체 요약 (목록/단건 공용 응답)
- * 대응 유스케이스: UC-SPC-03 검체식별관리 (Jira ZP2-79 검체 이력 조회)
+ * 대응 유스케이스: UC-SPC-03 검체식별관리 / UC-SPC-04 검체적합성판정(ZP2-79 미판정 검체 목록 조회)
  */
 
 @Getter
@@ -33,7 +33,6 @@ public class SpecimenSummaryDto {
 
     @Schema(description = "검체종류", example = "BLOOD", requiredMode = Schema.RequiredMode.REQUIRED)
     private SpecimenType specimenType;
-
 
     @Schema(description = "검체용기코드", example = "튜브", requiredMode = Schema.RequiredMode.REQUIRED)
     private String specimenContainerCode;

@@ -10,6 +10,7 @@ import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderExcept
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
+import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageReceptionDetailDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
@@ -17,12 +18,16 @@ import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEnt
 import kr.co.seoulit.his.labimagingservice.imagingorder.mapper.ImageOrderMapper;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.imagingschedule.entity.ImageScheduleEntity;
+import kr.co.seoulit.his.labimagingservice.imagingschedule.repository.ImageScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
@@ -53,24 +58,74 @@ public class ImageOrderService {
     private final ImageOrderMapper imageOrderMapper;
     private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
     private final CommonCodeCache commonCodeCache;
+    private final ImageScheduleRepository imageScheduleRepository;
+
+    /** 최종(현재 유효) 일정 판별값. IMAGE_SCHEDULE.latest_yn */
+    private static final String LATEST_YN = "Y";
 
 
     // ------------영상  접수 단건 조회---------------
     @Transactional(readOnly = true)
-    public ImageOrderSummaryDto getReceptionByNo(String receptionNo) {
+    public ImageReceptionDetailDto getReceptionByNo(String receptionNo) {
         ImageReceptionEntity reception = imageReceptionRepository.findByReceptionNo(receptionNo)
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB015,
                         "영상 촬영 접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
-        return imageOrderMapper.toResponse(reception.getImageOrder(), reception);
+
+        // 목록과 같은 정보를 보여주기 위해 예정일시도 채운다. (일정 미등록이면 null)
+        LocalDateTime scheduledAt = imageScheduleRepository
+                .findByImageReception_ImageReceptionIdAndLatestYn(reception.getImageReceptionId(), LATEST_YN)
+                .map(ImageScheduleEntity::getScheduledAt)
+                .orElse(null);
+
+        return imageOrderMapper.toDetailResponse(reception.getImageOrder(), reception, scheduledAt);
     }
 
-    // ------------영상 촬영 접수 목록 조회 (미일정 대상)---------------
+    // ------------영상 촬영 접수 목록 조회---------------
+    /**
+     * 영상접수 목록. 일정 등록 여부로 걸러서 본다.
+     * (동작·N+1 회피 방식은 LabOrderService.getReceptions 주석 참고)
+     *
+     * @param scheduledYn "N"=미일정(일정등록 대상), "Y"=일정등록됨(재조정 대상), null=전체
+     */
     @Transactional(readOnly = true)
-    public List<ImageOrderSummaryDto> getReceptions() {
-        return imageReceptionRepository.findUnscheduledWithImageOrder().stream()
-                .map(reception -> imageOrderMapper.toResponse(reception.getImageOrder(), reception))
+    public List<ImageOrderSummaryDto> getReceptions(String scheduledYn) {
+        List<ImageReceptionEntity> receptions = findReceptionsBy(scheduledYn);
+        Map<String, LocalDateTime> scheduledAtByReceptionId = findLatestScheduledAt(receptions);
+
+        return receptions.stream()
+                .map(reception -> imageOrderMapper.toResponse(
+                        reception.getImageOrder(),
+                        reception,
+                        scheduledAtByReceptionId.get(reception.getImageReceptionId())))
                 .toList();
+    }
+
+    /** scheduledYn 필터에 따라 조회 메서드를 고른다. 값이 없으면 전체. */
+    private List<ImageReceptionEntity> findReceptionsBy(String scheduledYn) {
+        if (LATEST_YN.equals(scheduledYn)) {
+            return imageReceptionRepository.findScheduledWithImageOrder();
+        }
+        if ("N".equals(scheduledYn)) {
+            return imageReceptionRepository.findUnscheduledWithImageOrder();
+        }
+        return imageReceptionRepository.findAllWithImageOrder();
+    }
+
+    /** 접수ID → 최종 일정의 예정일시 맵. 일정이 없는 접수는 맵에 키가 없다(= null 로 응답). */
+    private Map<String, LocalDateTime> findLatestScheduledAt(List<ImageReceptionEntity> receptions) {
+        if (receptions.isEmpty()) {
+            return Map.of();
+        }
+        List<String> receptionIds = receptions.stream()
+                .map(ImageReceptionEntity::getImageReceptionId)
+                .toList();
+
+        return imageScheduleRepository
+                .findByImageReception_ImageReceptionIdInAndLatestYn(receptionIds, LATEST_YN).stream()
+                .collect(Collectors.toMap(
+                        schedule -> schedule.getImageReception().getImageReceptionId(),
+                        ImageScheduleEntity::getScheduledAt));
     }
 
     @Transactional

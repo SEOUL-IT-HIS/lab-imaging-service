@@ -4,6 +4,7 @@ import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderSummaryDto;
+import kr.co.seoulit.his.labimagingservice.laborder.dto.LabReceptionDetailDto;
 import kr.co.seoulit.his.labimagingservice.laborder.service.LabOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,10 +28,14 @@ public class LabOrderController {
 
     private final LabOrderService labOrderService;
 
-    @Operation(summary = "검사 접수 목록 조회", description = "일정 등록 대상 선택용 검사접수(LAB_RECEPTION) 목록을 조회한다.")
+    @Operation(summary = "검사 접수 목록 조회",
+            description = "검사접수(LAB_RECEPTION) 목록을 조회한다. "
+                    + "scheduledYn=N 이면 일정 미등록(일정등록 대상), Y 이면 일정 등록됨(재조정 대상), "
+                    + "생략하면 전체를 반환한다.")
     @GetMapping("/receptions")
-    public ResponseEntity<ApiResponse<List<LabOrderSummaryDto>>> getReceptions() {
-        List<LabOrderSummaryDto> response = labOrderService.getReceptions();
+    public ResponseEntity<ApiResponse<List<LabOrderSummaryDto>>> getReceptions(
+            @RequestParam(required = false) String scheduledYn) {
+        List<LabOrderSummaryDto> response = labOrderService.getReceptions(scheduledYn);
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB003, "검사 접수 목록 조회에 성공했습니다.")
         );
@@ -43,9 +48,9 @@ public class LabOrderController {
      */
     @Operation(summary = "검사 접수 단건 조회", description = "접수번호로 검사접수(LAB_RECEPTION) 정보를 조회한다.")
     @GetMapping("/receptions/{receptionNo}")
-    public ResponseEntity<ApiResponse<LabOrderSummaryDto>> getReceptionByNo(
+    public ResponseEntity<ApiResponse<LabReceptionDetailDto>> getReceptionByNo(
             @PathVariable String receptionNo) {
-        LabOrderSummaryDto response = labOrderService.getReceptionByNo(receptionNo);
+        LabReceptionDetailDto response = labOrderService.getReceptionByNo(receptionNo);
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB003, "검사 접수 단건 조회에 성공했습니다.")
         );

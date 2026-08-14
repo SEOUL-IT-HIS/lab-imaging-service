@@ -7,15 +7,20 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenSummaryDto;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.FitnessStatus;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenAcceptanceEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.mapper.SpecimenMapper;
+import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenAcceptanceRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 검체 식별관리 서비스
@@ -37,6 +42,7 @@ import java.util.UUID;
 public class SpecimenService {
 
     private final SpecimenRepository specimenRepository;
+    private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
     private final CommonCodeCache commonCodeCache;
     private final SpecimenMapper specimenMapper;
     private final LabReceptionRepository labReceptionRepository;
@@ -61,27 +67,76 @@ public class SpecimenService {
                 .build();
         specimen.assignLabReception(reception);
         SpecimenEntity saved = specimenRepository.save(specimen);
-        return specimenMapper.toResponse(saved);
+        // 방금 만든 검체라 판정이 있을 수 없다.
+        return specimenMapper.toResponse(saved, null);
 
     }
 
-    // ------ 미판정 검체 목록 조회 (적합성판정 대상) ------
+    // ------ 검체 목록 조회 ------
     /**
-     * 판정등록 대상 = "아직 인수/적합성 판정이 없는(미판정)" 검체 목록.
+     * 검체 목록.
+     *
+     * @param judgedYn    "N"=미판정(판정 대상), "Y"=판정완료, null=전체
+     * @param receptionNo 접수번호. 값이 있으면 그 접수의 검체만 반환하고 judgedYn 은 무시한다.
+     *                    (워크리스트 오른쪽 작업 폼에서 "이 접수의 검체"를 보여줄 때 쓴다)
+     *
      * - 조회 전용이라 @Transactional(readOnly = true).
      * - 결과 0건은 정상적인 빈 목록이므로 예외를 던지지 않고 [] 를 그대로 반환한다.
      *   (단건 조회는 "못 찾음 = 예외"가 맞지만, 목록은 빈 결과가 정상 케이스다.)
-     * - 미판정 필터와 N+1(join fetch) 방어 설명은 findUnjudgedWithLabReception() 주석 참고.
+     * - 필터 조건과 N+1(join fetch) 방어 설명은 SpecimenRepository 주석 참고.
+     *
+     * ⚠ 적합상태(fitnessStatus)는 검체 목록을 먼저 뽑은 뒤 IN 절로 한 번에 조회해 붙인다.
+     *   검체마다 판정을 조회하면 행 수만큼 쿼리가 나간다(N+1).
+     *   (접수 목록의 scheduledAt 과 같은 방식)
      *
      * TODO(후속): 접수번호/채취일자/검체종류 등 검색조건, 페이지네이션(Pageable) 필요 시 확장.
      */
     @Transactional(readOnly = true)
-    public List<SpecimenSummaryDto> getUnjudgedSpecimens() {
-        List<SpecimenEntity> specimens = specimenRepository.findUnjudgedWithLabReception();
+    public List<SpecimenSummaryDto> getSpecimens(String judgedYn, String receptionNo) {
+        List<SpecimenEntity> specimens = findSpecimensBy(judgedYn, receptionNo);
+        Map<String, FitnessStatus> fitnessBySpecimenId = findFitnessStatus(specimens);
 
-        return specimenMapper.toResponseList(specimens);
+        return specimens.stream()
+                .map(specimen -> specimenMapper.toResponse(
+                        specimen,
+                        fitnessBySpecimenId.get(specimen.getSpecimenId())))
+                .toList();
     }
 
+    /**
+     * 조회 조건에 따라 조회 메서드를 고른다.
+     * 접수번호가 있으면 그 접수의 검체가 답이므로 판정여부 필터를 볼 필요가 없다.
+     */
+    private List<SpecimenEntity> findSpecimensBy(String judgedYn, String receptionNo) {
+        if (receptionNo != null && !receptionNo.isBlank()) {
+            return specimenRepository.findByLabReception_ReceptionNoOrderByCreatedAtAsc(receptionNo);
+        }
+        if ("Y".equals(judgedYn)) {
+            return specimenRepository.findJudgedWithLabReception();
+        }
+        if ("N".equals(judgedYn)) {
+            return specimenRepository.findUnjudgedWithLabReception();
+        }
+        return specimenRepository.findAllWithLabReception();
+    }
+
+    /**
+     * 검체ID → 적합상태 맵. 판정이 없는 검체는 맵에 키가 없다(= null 로 응답).
+     * 검체가 0건이면 IN 절 자체가 무의미하므로 쿼리를 보내지 않는다.
+     */
+    private Map<String, FitnessStatus> findFitnessStatus(List<SpecimenEntity> specimens) {
+        if (specimens.isEmpty()) {
+            return Map.of();
+        }
+        List<String> specimenIds = specimens.stream()
+                .map(SpecimenEntity::getSpecimenId)
+                .toList();
+
+        return specimenAcceptanceRepository.findBySpecimen_SpecimenIdIn(specimenIds).stream()
+                .collect(Collectors.toMap(
+                        acceptance -> acceptance.getSpecimen().getSpecimenId(),
+                        SpecimenAcceptanceEntity::getFitnessStatusCode));
+    }
 
     // ------ 검체 단건 조회 ------
     @Transactional(readOnly = true)
@@ -91,7 +146,14 @@ public class SpecimenService {
                         LabMessageCode.LAB020,
                         "등록된 검체 정보를 찾을 수 없습니다. (specimenId=" + specimenId + ")"
                 ));
-        return  specimenMapper.toResponse(specimen);
+
+        // 목록과 같은 정보를 보여주기 위해 적합상태도 채운다. (미판정이면 null)
+        FitnessStatus fitnessStatus = specimenAcceptanceRepository
+                .findBySpecimen_SpecimenId(specimenId)
+                .map(SpecimenAcceptanceEntity::getFitnessStatusCode)
+                .orElse(null);
+
+        return specimenMapper.toResponse(specimen, fitnessStatus);
     }
 
     private void validateCode(String groupCode, String code, String fieldLabel) {

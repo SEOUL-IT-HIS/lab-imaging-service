@@ -6,11 +6,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 검사 오더 접수 응답
  * API: POST /lab-orders
+ *
+ * ⚠ 이름은 Summary 지만 이제 접수 생성 응답 전용이다. (2026-08-14)
+ *   목록 조회에서도 쓰이던 시절의 이름이라, 목록이 워크리스트로 옮겨간 뒤로는
+ *   생성 응답 한 곳에서만 쓴다. 이름 정리는 다음 기회에.
  */
 @Getter
 @Builder
@@ -40,10 +42,9 @@ public class LabOrderSummaryDto {
     @Schema(description = "접수상태코드", example = "ACCEPTED")
     private String receptionStatusCode;
 
-    /**
-     * 최종(latest_yn='Y') 일정의 검사 예정일시. 일정 미등록 접수면 null.
-     * 목록에서 "언제로 잡혔는지"를 보여주고, 등록/재등록 버튼을 가르는 기준으로도 쓴다.
+    /*
+     * scheduledAt 은 삭제했다. (2026-08-14)
+     * 접수를 막 만든 시점에는 일정이 있을 수 없어 항상 null 이었고,
+     * 값이 채워지던 유일한 경로(목록 조회)는 워크리스트로 옮겨갔다.
      */
-    @Schema(description = "검사 예정일시 (일정 미등록이면 null)", example = "2026-08-20T09:30:00")
-    private LocalDateTime scheduledAt;
 }

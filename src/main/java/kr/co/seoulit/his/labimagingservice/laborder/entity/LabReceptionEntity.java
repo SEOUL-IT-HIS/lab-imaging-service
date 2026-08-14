@@ -2,6 +2,7 @@ package kr.co.seoulit.his.labimagingservice.laborder.entity;
 
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
 import lombok.AccessLevel;
@@ -58,6 +59,23 @@ public class LabReceptionEntity extends BaseAuditEntity {
     @Column(name = "ack_sent_at")
     private LocalDateTime ackSentAt;
 
+    /**
+     * 워크리스트 제외 사유. 상태가 EXCLUDED 일 때만 값이 있다.
+     *
+     * ⚠ 사유를 남기는 이유 — 담당자가 바뀌어도 "왜 뺐는지"를 검증할 수 있어야 한다.
+     *   기간 조건으로 자동으로 빼는 방식 대신 담당자 판단으로 빼기로 한 것이,
+     *   바로 이 기록이 남기 때문이다. 사유가 없으면 그 장점이 사라진다.
+     *
+     * ⚠ 공통코드가 아니라 자유 텍스트다. 어떤 사유가 실제로 쓰이는지는 운영해봐야 알 수 있어,
+     *   당분간 모아본 뒤 코드화 여부를 판단한다.
+     */
+    @Column(name = "exclusion_reason", length = 200)
+    private String exclusionReason;
+
+    /** 제외 처리 일시. 상태가 EXCLUDED 일 때만 값이 있다. */
+    @Column(name = "excluded_at")
+    private LocalDateTime excludedAt;
+
     @OneToMany(mappedBy = "labReception", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<LabScheduleEntity> schedules = new ArrayList<>();
 
@@ -90,6 +108,26 @@ public class LabReceptionEntity extends BaseAuditEntity {
     public void addSpecimen(SpecimenEntity specimen) {
         this.specimens.add(specimen);
         specimen.assignLabReception(this);
+    }
+
+    /**
+     * 워크리스트에서 제외한다. (담당자가 처리하지 않기로 판단한 건)
+     *
+     * ⚠ 상태 변경을 setter 가 아니라 의미 있는 메서드로 열어 둔다.
+     *   setReceptionStatusCode 를 열어두면 사유 없이 상태만 바꾸는 코드가 생길 수 있는데,
+     *   그러면 "왜 뺐는지"가 비어 있는 행이 남는다. 세 값을 항상 함께 바꾸도록 묶는다.
+     */
+    public void exclude(String exclusionReason, LocalDateTime excludedAt) {
+        this.receptionStatusCode = ReceptionStatus.EXCLUDED.name();
+        this.exclusionReason = exclusionReason;
+        this.excludedAt = excludedAt;
+    }
+
+    /** 워크리스트로 되돌린다. 제외 기록은 지운다. */
+    public void restore() {
+        this.receptionStatusCode = ReceptionStatus.ACCEPTED.name();
+        this.exclusionReason = null;
+        this.excludedAt = null;
     }
     void assignLabOrder(LabOrderEntity labOrder) {
         this.labOrder = labOrder;

@@ -25,26 +25,12 @@ public interface LabOrderMapper {
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
     @Mapping(target = "patientNo", source = "reception.patientNo")
-    @Mapping(target = "scheduledAt", ignore = true)
     LabOrderSummaryDto toResponse(LabOrderEntity order, LabReceptionEntity reception);
 
-    /**
-     * 예정일시까지 채우는 목록용 매핑.
-     *
-     * ⚠ scheduledAt 은 엔티티에서 바로 꺼낼 수 없다. LAB_SCHEDULE 은 접수 1건에 이력이 여러 건 쌓이고
-     *   그중 latest_yn='Y' 인 것만 유효한데, reception.schedules 를 매퍼가 훑으면 행마다 지연로딩이
-     *   일어난다(N+1). 그래서 Service 가 IN 절로 한 번에 조회해 값만 넘긴다.
+    /*
+     * 예정일시까지 채우던 3-파라미터 toResponse 는 삭제했다. (2026-08-14)
+     * 쓰던 곳이 접수 목록 조회뿐이었고, 그 목록은 워크리스트(LabWorklistMapper)가 대체한다.
      */
-    @Mapping(target = "labOrderId", source = "order.labOrderId")
-    @Mapping(target = "labOrderNo", source = "order.labOrderNo")
-    @Mapping(target = "orderStatusCode", source = "order.orderStatusCode")
-    @Mapping(target = "labReceptionId", source = "reception.labReceptionId")
-    @Mapping(target = "receptionNo", source = "reception.receptionNo")
-    @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
-    @Mapping(target = "patientNo", source = "reception.patientNo")
-    @Mapping(target = "scheduledAt", source = "scheduledAt")
-    LabOrderSummaryDto toResponse(LabOrderEntity order, LabReceptionEntity reception,
-                                  LocalDateTime scheduledAt);
 
     /**
      * 상세 화면용 매핑. 목록과 달리 검사항목(labItemCodes)까지 담는다.

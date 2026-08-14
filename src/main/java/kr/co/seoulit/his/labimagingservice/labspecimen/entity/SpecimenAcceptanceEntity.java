@@ -37,8 +37,14 @@ public class SpecimenAcceptanceEntity extends BaseAuditEntity {
     @Column(name = "accepted_by_id", length = 20, nullable = false )
     private String acceptedById;
 
+    /**
+     * ⚠ @Enumerated(EnumType.STRING) 을 빠뜨리면 안 된다.
+     *   기본값 ORDINAL 은 "FIT" 대신 선언 순서 숫자(0,1)로 저장해, 나중에 상수 순서를 바꾸면
+     *   이미 저장된 판정의 의미가 뒤집힌다. (SpecimenEntity.specimenTypeCode 와 같은 이유)
+     */
+    @Enumerated(EnumType.STRING)
     @Column(name = "fitness_status_code", length = 10, nullable = false )
-    private String fitnessStatusCode;
+    private FitnessStatus fitnessStatusCode;
 
     @Column(name = "unfit_reason_code", length = 10 )
     private String unfitReasonCode;
@@ -47,7 +53,7 @@ public class SpecimenAcceptanceEntity extends BaseAuditEntity {
     private String recollectionRequestedYn;
 
     @Builder
-    public SpecimenAcceptanceEntity(LocalDateTime acceptedAt, String acceptedById, String fitnessStatusCode,
+    public SpecimenAcceptanceEntity(LocalDateTime acceptedAt, String acceptedById, FitnessStatus fitnessStatusCode,
                                     String unfitReasonCode, String recollectionRequestedYn) {
         this.acceptedAt = acceptedAt;
         this.acceptedById = acceptedById;

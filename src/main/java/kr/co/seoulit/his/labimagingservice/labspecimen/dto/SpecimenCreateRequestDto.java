@@ -40,8 +40,8 @@ public class SpecimenCreateRequestDto {
     @Schema(description = "검체용기코드", example = "튜브")
     private String specimenContainerCode;
 
+    // enum 필드에는 @Size 가 동작하지 않아 붙이지 않는다. 값 검증은 Jackson 역직렬화가 담당한다.
     @NotNull
-    @Size(max = 10)
     @Schema(description = "검체종류", example = "BLOOD", requiredMode = Schema.RequiredMode.REQUIRED)
     private SpecimenType specimenType;
 

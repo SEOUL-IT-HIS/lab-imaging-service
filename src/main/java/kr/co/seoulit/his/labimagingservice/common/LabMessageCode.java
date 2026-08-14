@@ -23,6 +23,7 @@ public final class LabMessageCode {
     public static final String LAB010 = "LAB010"; // 검사 일정이 재등록되었습니다.
     public static final String LAB013 = "LAB013"; // 검사 접수 정보를 찾을 수 없습니다.
     public static final String LAB014 = "LAB014"; // 재등록할 기존 검사 일정이 없습니다.
+    public static final String LAB027 = "LAB027"; // 이미 등록된 검사 일정이 있습니다. (재등록 대상)
 
     // ---- 영상(IMAGE) 오더/접수/조회 ----
     public static final String LAB005 = "LAB005"; // 영상 접수가 생성되었습니다.
@@ -40,6 +41,16 @@ public final class LabMessageCode {
     public static final String LAB018 = "LAB018"; // 검체 정보가 등록되었습니다.
     public static final String LAB019 = "LAB019"; // 검체 정보 조회에 성공했습니다. (목록/단건 공용)
     public static final String LAB020 = "LAB020"; // 등록된 검체 정보를 찾을 수 없습니다.
+
+    // ---- 검체 인수/적합성 판정 ----
+    public static final String LAB021 = "LAB021"; // 검체 인수 및 적합성 판정이 등록되었습니다.
+    public static final String LAB022 = "LAB022"; // 이미 인수/판정이 완료된 검체입니다. (중복)
+
+    // ---- 워크리스트 / 접수 제외·복구 ----
+    public static final String LAB023 = "LAB023"; // 워크리스트 조회에 성공했습니다.
+    public static final String LAB024 = "LAB024"; // 접수가 워크리스트에서 제외되었습니다.
+    public static final String LAB025 = "LAB025"; // 접수가 워크리스트로 복구되었습니다.
+    public static final String LAB026 = "LAB026"; // 복구할 수 없는 접수입니다. (제외 상태가 아님)
 
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.

@@ -11,13 +11,15 @@ public interface LabReceptionRepository extends JpaRepository<LabReceptionEntity
 
     Optional<LabReceptionEntity> findByReceptionNo(String receptionNo);
 
+    /*
+     * 일정 등록 여부로 거르던 목록 3종(findUnscheduled/findScheduled/findAllWithLabOrder)은
+     * 삭제했다. (2026-08-14) 아래 워크리스트 조회가 대체한다.
+     */
+
     /**
-     * 일정등록 대상(미일정) 검사접수 목록 조회. 최신 접수가 위로 오도록 created_at 내림차순.
-     *
-     * ── 미일정 필터: "not exists (latest_yn='Y' 스케줄)"
-     *   - 재등록 로직상 한 접수의 유효 일정은 latest_yn='Y' 딱 1건뿐이다(조건부 UNIQUE 로 보장).
-     *     따라서 "latest_yn='Y' 인 LAB_SCHEDULE 이 하나도 없는 접수" = 아직 일정을 안 잡은 접수다.
-     *   - 이미 일정이 잡힌 접수는 빠지므로, 화면에는 "일정 등록 대상"만 남는다.
+     * 워크리스트용 접수 목록. 접수상태(ACCEPTED=처리 대상 / EXCLUDED=제외됨)로 거른다.
+     * 오래 대기한 건이 위로 오도록 접수일시 오름차순이다.
+     * (새 오더가 들어오면 목록 아래에 붙는 게 담당자 입장에서 자연스럽다)
      *
      * ── N+1 방어의 핵심: "join fetch r.labOrder"
      *   - LabReceptionEntity.labOrder 는 @ManyToOne(FetchType.LAZY) 다. 그냥 목록만 가져온 뒤
@@ -26,41 +28,25 @@ public interface LabReceptionRepository extends JpaRepository<LabReceptionEntity
      *   - "join fetch" 는 labOrder 를 목록 쿼리와 "한 방"에 즉시(eager) 로딩해 추가 SELECT 를 없앤다. → 1쿼리.
      *   - labOrder 는 @JoinColumn(nullable = false) 라 inner join fetch 로도 누락 행이 없다.
      *     (nullable 이면 LEFT join fetch 를 써야 함)
-     *   ※ not exists 서브쿼리는 스케줄의 "존재 여부"만 판단할 뿐 스케줄을 select/로딩 하지 않으므로,
-     *      스케줄 쪽에서 별도 N+1 이 생기지 않는다.
-     */
-    @Query("""
-            select r from LabReceptionEntity r
-            join fetch r.labOrder
-            where not exists (
-                select 1 from LabScheduleEntity s
-                 where s.labReception = r and s.latestYn = 'Y')
-            order by r.createdAt desc
-            """)
-    List<LabReceptionEntity> findUnscheduledWithLabOrder();
-
-    /**
-     * 일정이 이미 등록된 검사접수 목록. (재조정 대상)
-     * findUnscheduledWithLabOrder 와 not exists / exists 만 다르다.
      *
-     * ⚠ exists/not exists 를 파라미터로 뒤집는 JPQL 은 읽기 어려워져, 메서드를 나누고
-     *   Service 에서 분기한다.
+     * ⚠ 진행 상태(일정/검체/판정)는 여기서 join 하지 않는다.
+     *   SPECIMEN 은 접수와 1:N 이라 left join 을 걸면 검체 3건인 접수가 3행으로 늘어난다.
+     *   Service 가 접수 목록을 먼저 뽑은 뒤 IN 절로 일괄 조회해 붙인다.
+     *   (LabWorklistService 참고 — 접수가 몇 건이든 쿼리 수는 항상 일정하다)
      */
     @Query("""
             select r from LabReceptionEntity r
             join fetch r.labOrder
-            where exists (
-                select 1 from LabScheduleEntity s
-                 where s.labReception = r and s.latestYn = 'Y')
-            order by r.createdAt desc
+            where r.receptionStatusCode = :receptionStatusCode
+            order by r.createdAt asc
             """)
-    List<LabReceptionEntity> findScheduledWithLabOrder();
+    List<LabReceptionEntity> findWorklistByStatus(String receptionStatusCode);
 
-    /** 일정 등록 여부와 무관한 전체 검사접수 목록. */
+    /** 제외 여부와 무관한 전체 워크리스트. 정렬 기준은 findWorklistByStatus 와 같다. */
     @Query("""
             select r from LabReceptionEntity r
             join fetch r.labOrder
-            order by r.createdAt desc
+            order by r.createdAt asc
             """)
-    List<LabReceptionEntity> findAllWithLabOrder();
+    List<LabReceptionEntity> findWorklistAll();
 }

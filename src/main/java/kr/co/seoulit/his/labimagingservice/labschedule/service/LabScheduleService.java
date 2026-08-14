@@ -28,6 +28,23 @@ public class LabScheduleService {
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB013, "검사접수 정보를 찾을 수 없습니다."));
 
+        /*
+         * 이미 최종(latest_yn='Y') 일정이 있으면 신규 등록이 아니라 재등록 대상이다.
+         *
+         * ⚠ 이 확인이 없으면 아래 INSERT 가 latest_yn='Y' 조건부 UNIQUE(UX_LSCH_LATEST)에 걸려
+         *   DB 제약 위반이 그대로 500 으로 나간다. 담당자는 왜 실패했는지 알 수 없다.
+         *   DB 제약은 최종 방어선으로 두고, 여기서 업무 메시지로 먼저 걸러준다.
+         *   (검체 중복 판정을 LAB022 로 걸러주는 것과 같은 이유)
+         */
+        if (labScheduleRepository
+                .findByLabReception_LabReceptionIdAndLatestYn(request.getLabReceptionId(), "Y")
+                .isPresent()) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB027,
+                    "이미 등록된 검사 일정이 있습니다. 재등록을 사용하세요. (receptionNo="
+                            + reception.getReceptionNo() + ")");
+        }
+
         LabScheduleEntity schedule = LabScheduleEntity.builder()
                 .scheduledAt(request.getScheduledAt())
                 .reservationYn(request.getReservationYn())

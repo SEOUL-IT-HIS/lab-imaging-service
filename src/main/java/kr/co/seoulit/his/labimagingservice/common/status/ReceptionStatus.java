@@ -6,15 +6,24 @@ package kr.co.seoulit.his.labimagingservice.common.status;
  * ⚠ admin 공통코드가 아니라 서비스 내부 Enum으로 관리한다.
  *   (OrderStatus / OrderItemStatus 와 같은 결정 — 2026-08-04 팀 결정)
  *
- * ⚠ 값이 ACCEPTED 하나뿐인 건 OrderItemStatus 와 같은 이유다.
- *   ERD 테이블정의서의 reception_status_code 설명이 "공통코드값 (접수완료 등)" 뿐이라
- *   확정된 값 목록이 없고, 현재 코드에 접수 상태를 바꾸는 지점이 없다.
- *   검체(UC-SPC-03/04)·결과(UC-RST) 스프린트에서 전이 로직이 생길 때 그 설계에 맞춰 추가한다.
- *
  * ⚠ DB 컬럼이 VARCHAR2(10)이라 name() 길이가 10자를 넘는 값은 추가할 수 없다.
+ *
+ * ── 워크리스트에서의 의미 (2026-08-14)
+ *   워크리스트는 "결과가 등록되지 않은 접수는 전부 목록에 있다"가 원칙이라,
+ *   접수를 목록에서 빼내는 유일한 수단이 이 상태값이다.
+ *
+ *   ACCEPTED  : 목록에 남는다 (처리 대상)
+ *   EXCLUDED  : 담당자가 판단해 뺀 상태. 사유가 남고 다시 되돌릴 수 있다.
+ *
+ * ⚠ 앞으로 결과 등록이 구현되면 "결과등록완료" 상태가 추가되는데, 그건 EXCLUDED 와 달리
+ *   복구 대상이 아니다. 그래서 같은 값으로 뭉뚱그리지 않고 별도 상수로 추가해야 한다.
+ *   (복구 API 가 EXCLUDED 만 되돌리도록 막고 있는 이유 — LabOrderService.restoreReception)
  */
 public enum ReceptionStatus {
 
-    /** 접수완료 — 오더 접수와 함께 접수건이 생성된 상태 */
-    ACCEPTED
+    /** 접수완료 — 오더 접수와 함께 접수건이 생성된 상태. 워크리스트에 남는다. */
+    ACCEPTED,
+
+    /** 제외 — 담당자가 처리하지 않기로 판단해 워크리스트에서 뺀 상태. 복구 가능. */
+    EXCLUDED
 }

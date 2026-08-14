@@ -25,9 +25,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.UUID;
 
 /**
@@ -84,63 +81,61 @@ public class LabOrderService {
         return labOrderMapper.toDetailResponse(reception.getLabOrder(), reception, scheduledAt);
     }
 
-    // ------------검사 접수 목록 조회 (미일정 대상)---------------
-    /**
-     * 검사접수 목록. 일정 등록 여부로 걸러서 본다.
-     *
-     * @param scheduledYn "N"=미일정(일정등록 대상), "Y"=일정등록됨(재조정 대상), null=전체
-     *
-     * - 조회 전용이라 @Transactional(readOnly = true). OSIV 비의존 + flush/dirty-checking 부담 감소.
-     * - 결과 0건은 정상적인 빈 목록이므로, 예외를 던지지 않고 [] 를 그대로 반환한다.
-     *   (단건 조회는 "못 찾음 = 예외"가 맞지만, 목록은 빈 결과가 정상 케이스다.)
-     * - 필터 조건과 N+1(join fetch) 방어 설명은 LabReceptionRepository 주석 참고.
-     *
-     * ⚠ 예정일시(scheduledAt)는 접수 목록을 먼저 뽑은 뒤 IN 절로 한 번에 조회해 붙인다.
-     *   접수마다 일정을 조회하면 행 수만큼 쿼리가 나간다(N+1). 상세는 findLatestScheduledAt 참고.
-     *
-     * TODO(후속): 환자번호/접수일자/상태코드 등 검색조건, 페이지네이션(Pageable) 필요 시 확장.
+    /*
+     * 접수 목록 조회(getReceptions)는 삭제했다. (2026-08-14)
+     * 워크리스트(LabWorklistService)가 같은 목록을 진행 상태까지 얹어서 대체한다.
+     * 함께 빠진 것: findReceptionsBy, findLatestScheduledAt,
+     *              LabReceptionRepository 의 findUnscheduled/findScheduled/findAllWithLabOrder,
+     *              LabOrderMapper 의 3-파라미터 toResponse.
      */
-    @Transactional(readOnly = true)
-    public List<LabOrderSummaryDto> getReceptions(String scheduledYn) {
-        List<LabReceptionEntity> receptions = findReceptionsBy(scheduledYn);
-        Map<String, LocalDateTime> scheduledAtByReceptionId = findLatestScheduledAt(receptions);
 
-        return receptions.stream()
-                .map(reception -> labOrderMapper.toResponse(
-                        reception.getLabOrder(),
-                        reception,
-                        scheduledAtByReceptionId.get(reception.getLabReceptionId())))
-                .toList();
-    }
+    // ------------ 워크리스트 제외 / 복구 ---------------
+    /**
+     * 접수를 워크리스트에서 제외한다.
+     *
+     * ⚠ 워크리스트는 "결과가 등록되지 않은 접수는 전부 목록에 있다"가 원칙이라,
+     *   담당자가 직접 빼주지 않으면 처리되지 않을 건(환자 미방문, 잘못 들어온 오더 등)이
+     *   목록에 영원히 남는다. 기간이 지났다고 자동으로 숨기지 않는 이유는,
+     *   실제로는 처리해야 하는데 누락된 건까지 같이 사라지기 때문이다.
+     *
+     * ⚠ 삭제가 아니다. 상태만 바뀌고 행은 그대로 남아 restoreReception 으로 되돌릴 수 있다.
+     */
+    @Transactional
+    public void excludeReception(String receptionNo, String exclusionReason) {
+        LabReceptionEntity reception = findReceptionByNo(receptionNo);
 
-    /** scheduledYn 필터에 따라 조회 메서드를 고른다. 값이 없으면 전체. */
-    private List<LabReceptionEntity> findReceptionsBy(String scheduledYn) {
-        if (LATEST_YN.equals(scheduledYn)) {
-            return labReceptionRepository.findScheduledWithLabOrder();
-        }
-        if ("N".equals(scheduledYn)) {
-            return labReceptionRepository.findUnscheduledWithLabOrder();
-        }
-        return labReceptionRepository.findAllWithLabOrder();
+        reception.exclude(exclusionReason, LocalDateTime.now());
     }
 
     /**
-     * 접수ID → 최종 일정의 예정일시 맵. 일정이 없는 접수는 맵에 키가 없다(= null 로 응답).
-     * 접수가 0건이면 IN 절 자체가 무의미하므로 쿼리를 보내지 않는다.
+     * 제외된 접수를 워크리스트로 되돌린다.
+     *
+     * ⚠ EXCLUDED 상태만 복구할 수 있다.
+     *   앞으로 결과 등록이 구현되면 "결과등록완료"로 목록에서 빠지는 경로가 생기는데,
+     *   그건 업무가 끝나서 빠진 것이라 되돌릴 대상이 아니다. 여기서 상태를 확인하지 않으면
+     *   완료된 접수까지 워크리스트로 되살아난다.
      */
-    private Map<String, LocalDateTime> findLatestScheduledAt(List<LabReceptionEntity> receptions) {
-        if (receptions.isEmpty()) {
-            return Map.of();
-        }
-        List<String> receptionIds = receptions.stream()
-                .map(LabReceptionEntity::getLabReceptionId)
-                .toList();
+    @Transactional
+    public void restoreReception(String receptionNo) {
+        LabReceptionEntity reception = findReceptionByNo(receptionNo);
 
-        return labScheduleRepository
-                .findByLabReception_LabReceptionIdInAndLatestYn(receptionIds, LATEST_YN).stream()
-                .collect(Collectors.toMap(
-                        schedule -> schedule.getLabReception().getLabReceptionId(),
-                        LabScheduleEntity::getScheduledAt));
+        if (!ReceptionStatus.EXCLUDED.name().equals(reception.getReceptionStatusCode())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB026,
+                    "제외된 접수가 아니어서 복구할 수 없습니다. (receptionNo=" + receptionNo
+                            + ", 상태=" + reception.getReceptionStatusCode() + ")"
+            );
+        }
+
+        reception.restore();
+    }
+
+    /** 접수번호로 접수를 찾는다. 없으면 LAB013. (제외/복구가 같은 조회를 쓴다) */
+    private LabReceptionEntity findReceptionByNo(String receptionNo) {
+        return labReceptionRepository.findByReceptionNo(receptionNo)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB013,
+                        "검사접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
     }
 
     @Transactional

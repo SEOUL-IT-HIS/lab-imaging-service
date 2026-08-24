@@ -28,6 +28,14 @@ public class ImageOrderSummaryDto {
     @Schema(description = "환자번호", example = "PA-2026-000456")
     private String patientNo;
 
+    /**
+     * 하위 작업(동의 등록 등)이 요청 본문에 환자ID를 담아야 해서 함께 내려준다.
+     * 화면에 표시하는 값은 patientNo 다. (LabWorklistItemDto 와 같은 이유)
+     */
+    @Schema(description = "환자ID (patient-service 내부 식별자)",
+            example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
+    private String patientId;
+
     @Schema(description = "오더상태코드", example = "RECEIVED")
     private String orderStatusCode;
 

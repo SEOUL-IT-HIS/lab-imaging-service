@@ -52,6 +52,12 @@ public final class LabMessageCode {
     public static final String LAB025 = "LAB025"; // 접수가 워크리스트로 복구되었습니다.
     public static final String LAB026 = "LAB026"; // 복구할 수 없는 접수입니다. (제외 상태가 아님)
 
+    // ---- 조영제/침습검사 동의 (UC-IMG-05) ----
+    public static final String LAB028 = "LAB028"; // 동의 정보가 등록되었습니다.
+    public static final String LAB029 = "LAB029"; // 동의 정보 조회에 성공했습니다.
+    public static final String LAB030 = "LAB030"; // 영상 오더 정보를 찾을 수 없습니다.
+    public static final String LAB031 = "LAB031"; // 이미 등록된 동의가 있습니다. (같은 유형, 철회 전)
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

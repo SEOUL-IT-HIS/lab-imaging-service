@@ -25,6 +25,7 @@ public interface ImageOrderMapper {
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
     @Mapping(target = "patientNo", source = "reception.patientNo")
+    @Mapping(target = "patientId", source = "reception.patientId")
     @Mapping(target = "scheduledAt", ignore = true)
     ImageOrderSummaryDto toResponse(ImageOrderEntity order, ImageReceptionEntity reception);
 
@@ -39,6 +40,7 @@ public interface ImageOrderMapper {
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
     @Mapping(target = "patientNo", source = "reception.patientNo")
+    @Mapping(target = "patientId", source = "reception.patientId")
     @Mapping(target = "scheduledAt", source = "scheduledAt")
     ImageOrderSummaryDto toResponse(ImageOrderEntity order, ImageReceptionEntity reception,
                                     LocalDateTime scheduledAt);

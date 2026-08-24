@@ -46,7 +46,13 @@ public class SpecimenAcceptanceEntity extends BaseAuditEntity {
     @Column(name = "fitness_status_code", length = 10, nullable = false )
     private FitnessStatus fitnessStatusCode;
 
-    @Column(name = "unfit_reason_code", length = 10 )
+    /**
+     * ⚠ 길이가 30 이다. 다른 공통코드 컬럼(10)과 다른 것은 실수가 아니다.
+     *   admin 의 SPECIMEN_REJECT_CD 코드값이 INSUFFICIENT(12자)처럼 10자를 넘는다.
+     *   코드값 길이는 admin 이 정하는 것이라 이쪽 컬럼이 맞춰야 한다.
+     *   (2026-08-24 — 10자였을 때 부적합 판정이 LAB998 로 막혔다)
+     */
+    @Column(name = "unfit_reason_code", length = 30)
     private String unfitReasonCode;
 
     @Column(name = "recollection_requested_yn", columnDefinition = "CHAR(1)", nullable = false)

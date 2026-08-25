@@ -13,9 +13,28 @@ import java.util.Optional;
  */
 public interface SpecimenRepository extends JpaRepository<SpecimenEntity, String> {
 
+    /**
+     * TODO(ZP2-75 바코드 검증): 호출하는 코드가 아직 없다. 바코드 조회 엔드포인트를 만들 때 쓴다.
+     *   지우지 않고 두는 이유는 그 작업이 확정된 후속 항목이기 때문이다.
+     *   (SpecimenAcceptanceController 의 TODO 참고)
+     */
     Optional<SpecimenEntity> findBySpecimenBarcode(String  specimenBarcode);
 
+    /**
+     * TODO(채번 충돌 확인): 호출하는 코드가 아직 없다.
+     *   SpecimenService.generateSpecimenBarcode 가 UUID 앞 8자리로 채번하면서 중복을 확인하지 않는다.
+     *   충돌하면 specimen_barcode UNIQUE 위반이 LAB999(500)로 나간다. 확률은 낮지만,
+     *   위 바코드 작업을 할 때 이 메서드로 재채번 루프를 넣을 것.
+     */
     boolean existsBySpecimenBarcode(String  specimenBarcode);
+
+    /**
+     * TODO(ZP2-79 검체 이력 조회, 후반 작업): 아래 3개(미판정/판정완료/전체)는 화면에서 아직 쓰지 않는다.
+     *   워크리스트 오른쪽 판정 패널은 접수별 목록(findByLabReception_ReceptionNoOrderByCreatedAtAsc)만 쓰고,
+     *   판정 여부는 클라이언트에서 거른다. 판정 완료 건을 회색으로 남겨 "3건 중 2건 판정" 을 보여줘야 해서,
+     *   서버에서 걸러 받으면 오히려 화면이 성립하지 않기 때문이다.
+     *   접수를 넘나드는 검체 이력 조회 화면이 생기면 그때 이 3개가 쓰인다.
+     */
 
     /**
      * 적합성판정 대상(미판정) 검체 목록 조회. 최신 채취 건이 위로 오도록 created_at 내림차순.

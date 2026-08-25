@@ -29,13 +29,16 @@ import java.util.stream.Collectors;
  * ⚠ Service 인터페이스 없이 클래스로 바로 구현한다 (SpecimenServiceImpl 형태 아님).
  *   사유는 LabOrderService 주석 참고.
  *
- * TODO: 기능 구현
- *   - 검체 채취정보 등록 (ZP2-68)
- *   - 검체 식별정보 필수값/유효성 검증 (ZP2-66)
- *   - 검체 바코드 발행 (ZP2-65) — 채번 규칙 확정 필요
- *   - 미판정 검체 목록 조회 (ZP2-79, UC-SPC-04 적합성판정 대상)
- * 환자 검증 PatientServiceBusinessDelegate.validatePatient(patientId) 미사용.
- *       접수 시점에 이미 검증했으므로 중복 호출을 피한다.
+ * ── 구현 현황
+ *   ZP2-68 검체 채취정보 등록      : 완료 (createSpecimen)
+ *   ZP2-66 필수값/유효성 검증      : 완료 (DTO Bean Validation + 검체용기코드 공통코드 검증)
+ *   ZP2-65 검체 바코드 발행        : 채번 완료 (generateSpecimenBarcode)
+ *                                   TODO 중복 확인 — SpecimenRepository.existsBySpecimenBarcode 주석 참고
+ *   ZP2-79 검체 목록 조회          : 완료. 다만 화면은 접수별 목록만 쓴다.
+ *                                   판정여부 필터는 후반 이력 화면용 — getSpecimens 주석 참고
+ *
+ * ⚠ 환자 검증(PatientServiceBusinessDelegate.validatePatient)은 호출하지 않는다.
+ *   검체는 이미 접수된 건에 붙는 것이고, 그 접수를 만들 때 환자ID를 이미 검증했다.
  */
 @Service
 @RequiredArgsConstructor
@@ -77,6 +80,8 @@ public class SpecimenService {
      * 검체 목록.
      *
      * @param judgedYn    "N"=미판정(판정 대상), "Y"=판정완료, null=전체
+     *                    TODO(ZP2-79, 후반 작업): 화면에서 아직 보내지 않는다. 검체 이력 조회 화면이 생기면 쓴다.
+     *                    사유는 SpecimenRepository 의 같은 TODO 참고.
      * @param receptionNo 접수번호. 값이 있으면 그 접수의 검체만 반환하고 judgedYn 은 무시한다.
      *                    (워크리스트 오른쪽 작업 폼에서 "이 접수의 검체"를 보여줄 때 쓴다)
      *

@@ -17,10 +17,9 @@ import java.time.LocalDateTime;
  * API: POST /api/lab-imaging/specimens
  * 대응 유스케이스: UC-SPC-03 검체식별관리 (Jira ZP2-68)
  *
- * TODO: 필드 추가 — labReceptionId, specimenContainerCode, patientNo, patientId,
- *       collectedAt, collectedById
- *       (@NotBlank/@Size 는 SPECIMEN 테이블 제약과 맞출 것. LabOrderCreateRequestDto 참고)
- * TODO: specimenBarcode 는 요청으로 받지 않고 서버가 채번할지 결정 필요 (ZP2-65 바코드 발행)
+ * ⚠ specimenBarcode 는 요청으로 받지 않는다. 서버가 채번해서 응답으로 내려준다. (ZP2-65)
+ *   채취 담당자가 바코드를 직접 입력할 일이 없고, 값이 겹치면 안 되기 때문이다.
+ *   채번 규칙은 SpecimenService.generateSpecimenBarcode 참고.
  */
 
 @Getter

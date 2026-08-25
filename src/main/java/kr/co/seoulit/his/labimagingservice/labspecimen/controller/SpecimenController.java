@@ -50,6 +50,7 @@ public class SpecimenController {
             description = "검체 목록을 조회한다. "
                     + "judgedYn=N 이면 미판정(적합성판정 대상), Y 이면 판정 완료, 생략하면 전체를 반환한다. "
                     + "receptionNo 를 주면 그 접수의 검체만 반환하며 judgedYn 은 무시된다.")
+    // TODO(ZP2-79, 후반 작업): 현재 화면은 receptionNo 만 보낸다. judgedYn 은 검체 이력 조회 화면용으로 남겨둔 것이다.
     @GetMapping
     public ResponseEntity<ApiResponse<List<SpecimenSummaryDto>>> getSpecimens(
             @RequestParam(required = false) String judgedYn,

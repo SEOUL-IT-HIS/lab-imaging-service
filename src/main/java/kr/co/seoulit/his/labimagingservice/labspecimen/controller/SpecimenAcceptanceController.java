@@ -32,8 +32,14 @@ import org.springframework.web.bind.annotation.*;
  *   최초 등록(POST /lab-schedules, 대상ID를 바디로)이 아니라
  *   재조정(POST /lab-schedules/{labReceptionId}/reschedule) 쪽 규칙을 따른다.
  *
- * ⚠ 바코드 스캔 흐름은 프론트에서 "바코드로 검체 조회 → specimenId 확보 → 이 API 호출" 2단계다.
- *   스캔 직후 어떤 검체인지 화면에 보여줘야 하므로 조회는 어차피 필요하다.
+ * ⚠ 실제 화면 흐름은 "워크리스트에서 접수 선택 → 그 접수의 검체 목록에서 판정할 검체 클릭 → 이 API 호출" 이다.
+ *   바코드로 검체를 찾는 경로는 아직 없다. (아래 TODO)
+ *
+ * TODO(ZP2-75 바코드 검증): 스캐너 입력으로 검체를 찾는 경로가 미구현이다.
+ *   - GET /api/lab-imaging/specimens/barcode/{specimenBarcode} 추가
+ *     (SpecimenRepository.findBySpecimenBarcode 가 이 용도로 선언만 돼 있다)
+ *   - 판정 화면에 바코드 입력칸을 두고, 조회된 검체를 목록에서 자동 선택
+ *   목록 선택 방식을 대체하는 게 아니라 입력 수단을 하나 늘리는 것이다. 두 방식 모두 이 API 로 모인다.
  */
 @RestController
 @RequestMapping("/api/lab-imaging/specimens")

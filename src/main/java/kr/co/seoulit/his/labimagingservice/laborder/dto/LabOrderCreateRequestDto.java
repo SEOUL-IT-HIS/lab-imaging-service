@@ -27,8 +27,9 @@ import java.util.List;
 @Schema(description = "검사 오더 접수 요청")
 public class LabOrderCreateRequestDto {
 
+    // MSA 간 참조 식별자를 VARCHAR2(36)으로 통일 (2026-08-25). 처방코어의 prescriptionId 가 최대 36자.
     @NotBlank
-    @Size(max = 20)
+    @Size(max = 36)
     @Schema(description = "외부시스템 오더 원본 번호 (LAB_ORDER.lab_order_no, UNIQUE)", example = "EXT-LO-20260715-001", requiredMode = Schema.RequiredMode.REQUIRED)
     private String labOrderNo;
 
@@ -43,9 +44,13 @@ public class LabOrderCreateRequestDto {
     @Schema(description = "연계시스템코드", example = "GR2", requiredMode = Schema.RequiredMode.REQUIRED)
     private String systemCode;
 
-    @NotBlank
+    /**
+     * ⚠ @NotBlank 를 뗐다. 연계 수신(LabOrderIntakeService)이 이 값을 채우지 못하기 때문이다.
+     *   환자번호 발급 주체가 없어 코어도 patient-service 도 갖고 있지 않다. (2026-08-25 결정)
+     *   프론트 수동 등록 폼은 계속 입력받으므로 그쪽 경로는 값이 들어온다.
+     */
     @Size(max = 20)
-    @Schema(description = "환자번호 (화면 표시용 업무번호)", example = "P00012345", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "환자번호 (화면 표시용 업무번호, 발급 주체 미정이라 없을 수 있음)", example = "P00012345")
     private String patientNo;
 
     @NotBlank

@@ -44,9 +44,12 @@ public class SpecimenCreateRequestDto {
     @Schema(description = "검체종류", example = "BLOOD", requiredMode = Schema.RequiredMode.REQUIRED)
     private SpecimenType specimenType;
 
-    @NotBlank
+    /**
+     * ⚠ @NotBlank 를 뗐다. 연계 수신으로 만들어진 접수는 환자번호가 없어서,
+     *   그 접수의 검체를 등록할 때 넘길 값이 없다. (LabOrderCreateRequestDto 와 같은 사유)
+     */
     @Size(max = 20)
-    @Schema(description = "환자번호 (화면 표시용 업무번호)", example = "P00012345", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "환자번호 (화면 표시용 업무번호, 없을 수 있음)", example = "P00012345")
     private String patientNo;
 
     @NotBlank

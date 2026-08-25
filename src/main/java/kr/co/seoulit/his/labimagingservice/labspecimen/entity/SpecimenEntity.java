@@ -47,7 +47,13 @@ public class SpecimenEntity extends BaseAuditEntity {
     @Column(name = "specimen_type_code", length = 10, nullable = false )
     private SpecimenType specimenTypeCode;
 
-    @Column(name = "patient_no", length = 20, nullable = false )
+    /**
+     * ⚠ nullable 이다. 환자번호를 발급하는 주체가 아직 없어서 값이 없는 접수가 존재한다.
+     *   (2026-08-25 결정 — 처방코어도 이 값을 갖고 있지 않고, patient-service 응답에도 없다)
+     *   화면 표시용일 뿐 식별·검증에는 쓰지 않으므로 없어도 업무는 진행된다. 식별은 patient_id 로 한다.
+     *   발급 주체가 정해지면 NOT NULL 로 되돌린다.
+     */
+    @Column(name = "patient_no", length = 20)
     private String patientNo;
 
     @Column(name = "patient_id", length = 36 )

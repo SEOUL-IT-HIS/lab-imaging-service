@@ -27,8 +27,9 @@ import java.util.List;
 @Schema(description = "영상 오더 접수 요청")
 public class ImageOrderCreateRequestDto {
 
+    // MSA 간 참조 식별자를 VARCHAR2(36)으로 통일 (2026-08-25). 처방코어의 prescriptionId 가 최대 36자.
     @NotBlank
-    @Size(max = 20)
+    @Size(max = 36)
     @Schema(description = "외부시스템 오더 원본 번호 (IMAGE_ORDER.image_order_no, UNIQUE)", example = "EXT-IO-20260715-001", requiredMode = Schema.RequiredMode.REQUIRED)
     private String imageOrderNo;
 

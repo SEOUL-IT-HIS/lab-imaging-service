@@ -34,7 +34,8 @@ public class ImageOrderEntity extends BaseAuditEntity {
     @Column(name = "image_order_id", length = 36, nullable = false, updatable = false)
     private String imageOrderId;
 
-    @Column(name = "image_order_no", length = 20, nullable = false, unique = true)
+    // MSA 간 참조 식별자를 VARCHAR2(36)으로 통일 (2026-08-25). 처방코어의 prescriptionId 가 최대 36자.
+    @Column(name = "image_order_no", length = 36, nullable = false, unique = true)
     private String imageOrderNo;
 
     @Column(name = "system_code", length = 10, nullable = false)

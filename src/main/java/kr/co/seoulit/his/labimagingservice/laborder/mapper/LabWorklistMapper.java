@@ -25,7 +25,6 @@ public interface LabWorklistMapper {
     @Mapping(target = "labReceptionId", source = "reception.labReceptionId")
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "labOrderNo", source = "reception.labOrder.labOrderNo")
-    @Mapping(target = "patientNo", source = "reception.patientNo")
     @Mapping(target = "patientId", source = "reception.patientId")
     @Mapping(target = "urgencyYn", source = "reception.urgencyYn")
     @Mapping(target = "receivedAt", source = "reception.createdAt")

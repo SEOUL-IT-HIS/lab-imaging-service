@@ -156,7 +156,6 @@ public class ImageOrderService {
         ImageOrderEntity imageOrder = ImageOrderEntity.builder()
                 .imageOrderNo(request.getImageOrderNo())
                 .systemCode(request.getSystemCode())
-                .patientNo(request.getPatientNo())
                 .patientId(request.getPatientId())
                 .physicianNo(request.getPhysicianNo())
                 .physicianId(request.getPhysicianId())
@@ -176,7 +175,6 @@ public class ImageOrderService {
 
         ImageReceptionEntity reception = ImageReceptionEntity.builder()
                 .receptionNo(generateReceptionNo()) // TODO: 실제 채번 규칙 확정 필요
-                .patientNo(request.getPatientNo())
                 .patientId(request.getPatientId())
                 .receptionStatusCode(ReceptionStatus.ACCEPTED.name())
                 .urgencyYn(request.getUrgencyYn())

@@ -42,9 +42,6 @@ public class SpecimenSummaryDto {
     @Schema(description = "검체용기코드 (공통코드 SPECIMEN_CONTAINER_CD)", example = "01")
     private String specimenContainerCode;
 
-    @Schema(description = "환자번호", example = "P00012345")
-    private String patientNo;
-
     @Schema(description = "검체채취일시", example = "2026-07-25T09:30:00")
     private LocalDateTime collectedAt;
 

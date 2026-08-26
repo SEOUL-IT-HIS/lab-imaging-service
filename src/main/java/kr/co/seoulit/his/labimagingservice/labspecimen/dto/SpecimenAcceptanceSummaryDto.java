@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * 대응 유스케이스: UC-SPC-04 검체적합성판정
  *
  * ⚠ 판정 결과만 담으면 "무슨 검체를, 누구 것을" 판정했는지 알 수 없어서
- *   검체 식별 정보(바코드·종류·환자번호·접수번호)를 함께 담는다.
+ *   검체 식별 정보(바코드·종류·접수번호)를 함께 담는다.
  *   사람이 검체를 식별하는 값은 UUID 가 아니라 바코드다.
  *
  * ⚠ specimenAcceptanceId(판정 PK)는 담지 않는다. 화면에 쓸 일도, 이동에 쓸 일도 없다.
@@ -39,9 +39,6 @@ public class SpecimenAcceptanceSummaryDto {
 
     @Schema(description = "검체종류", example = "BLOOD")
     private SpecimenType specimenType;
-
-    @Schema(description = "환자번호", example = "P00012345")
-    private String patientNo;
 
     @Schema(description = "검체 인수일시", example = "2026-07-25T09:30:00")
     private LocalDateTime acceptedAt;

@@ -160,7 +160,6 @@ public class LabOrderIntakeService {
                 // 처방ID를 오더번호로 쓴다. 코어가 재시도하지 않으므로 이 값이 중복 판정의 기준이 된다.
                 .labOrderNo(request.getPrescriptionId())
                 .systemCode(SYSTEM_CODE_OUTPATIENT)
-                // patientNo 는 코어가 보내지 않는다. 값이 없는 채로 저장된다. (수신 DTO 주석 참고)
                 .patientId(request.getPatientId())
                 // 코어가 처방의 "번호"를 주지 않는다. ID만 온다.
                 .physicianNo(null)

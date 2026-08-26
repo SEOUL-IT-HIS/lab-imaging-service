@@ -55,9 +55,9 @@ public class LabOrderIntakeRequestDto {
 
     /*
      * ⚠ patientNo 는 받지 않는다. (2026-08-25 결정)
-     *   환자번호를 발급하는 주체가 아직 없다. 코어도 갖고 있지 않고 patient-service 응답에도 없다.
-     *   검사 쪽 화면 표시용 값이라 코어에 요구할 성질도 아니다.
-     *   환자 식별은 patientId 로 한다. 발급 주체가 정해지면 그때 필드를 추가한다.
+     *   전체 MSA 에서 환자번호 활용 방식이 정해지기 전까지 화면·DTO 어디에서도 쓰지 않기로 했다.
+     *   발급 주체도 아직 없어서 코어도, patient-service 도 이 값을 갖고 있지 않다.
+     *   환자 식별은 patientId 로 하고, 화면에 필요한 환자명은 그 ID 로 조회한다.
      */
 
     @Size(max = 36)

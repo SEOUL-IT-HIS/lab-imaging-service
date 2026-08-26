@@ -25,12 +25,14 @@ public class ImageOrderSummaryDto {
     @Schema(description = "오더번호", example = "IO-2026-000456")
     private String imageOrderNo;
 
-    @Schema(description = "환자번호", example = "PA-2026-000456")
-    private String patientNo;
-
     /**
      * 하위 작업(동의 등록 등)이 요청 본문에 환자ID를 담아야 해서 함께 내려준다.
-     * 화면에 표시하는 값은 patientNo 다. (LabWorklistItemDto 와 같은 이유)
+     * 화면의 환자명 조회에도 쓴다. (LabWorklistItemDto 와 같은 이유)
+     *
+     * ⚠ 환자번호(patient_no)는 화면·DTO 에서 모두 뺐다. (2026-08-25 결정)
+     *   전체 MSA 에서 환자번호를 어떻게 쓸지 정해지기 전까지 쓰지 않기로 했고,
+     *   발급 주체도 아직 없다. 컬럼은 남아 있으니 결정되면 다시 열면 된다.
+     *   그동안 화면에서 환자를 알아보는 값은 환자명이며, patientId 로 조회한다.
      */
     @Schema(description = "환자ID (patient-service 내부 식별자)",
             example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")

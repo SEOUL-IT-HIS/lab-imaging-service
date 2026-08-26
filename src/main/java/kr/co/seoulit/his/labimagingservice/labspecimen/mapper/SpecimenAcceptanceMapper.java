@@ -19,7 +19,6 @@ public interface SpecimenAcceptanceMapper {
     @Mapping(target = "receptionNo", source = "specimen.labReception.receptionNo")
     @Mapping(target = "specimenBarcode", source = "specimen.specimenBarcode")
     @Mapping(target = "specimenType", source = "specimen.specimenTypeCode")
-    @Mapping(target = "patientNo", source = "specimen.patientNo")
     @Mapping(target = "fitnessStatus", source = "fitnessStatusCode")
     SpecimenAcceptanceSummaryDto toResponse(SpecimenAcceptanceEntity saved);
 }

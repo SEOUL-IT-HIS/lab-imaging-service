@@ -64,7 +64,6 @@ public class SpecimenService {
                 .specimenContainerCode(request.getSpecimenContainerCode())
                 .specimenTypeCode(request.getSpecimenType())
                 .patientId(request.getPatientId())
-                .patientNo(request.getPatientNo())
                 .collectedAt(request.getCollectedAt())
                 .collectedById(request.getCollectedById())
                 .build();
@@ -133,6 +132,7 @@ public class SpecimenService {
         if (specimens.isEmpty()) {
             return Map.of();
         }
+        // ⚠ Xxx::method = 메서드 참조. s -> s.getSpecimenId() 와 같다. (LabOrderService 주석 참고)
         List<String> specimenIds = specimens.stream()
                 .map(SpecimenEntity::getSpecimenId)
                 .toList();

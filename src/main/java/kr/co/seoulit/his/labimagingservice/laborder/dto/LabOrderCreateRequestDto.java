@@ -33,25 +33,21 @@ public class LabOrderCreateRequestDto {
     @Schema(description = "외부시스템 오더 원본 번호 (LAB_ORDER.lab_order_no, UNIQUE)", example = "EXT-LO-20260715-001", requiredMode = Schema.RequiredMode.REQUIRED)
     private String labOrderNo;
 
-    // TODO: [Open Question] 2026-07-16 GR2 처방코어 아키텍처 확정 이후, 실제 호출 주체가
-    // 항상 "GR2 처방코어" 하나로 고정된다면 이 필드가 "GR2/ZQ2/UD2" 같은 개별 채널 값을
-    // 받을 일이 없어짐. 대신 코어 쪽 API는 채널 구분을 encounterType(OPD|ER|IP)으로
-    // 관리하고 있어, 원래 환자가 어느 채널에서 왔는지 구분하려면
-    // systemCode를 encounterType 값(OPD/ER/IP)으로 대체하거나 별도 필드를 추가해야 할
-    // 가능성이 있음. 코어 쪽 실제 요청 payload가 확정되면 이 필드부터 재검토 필요.
+    /**
+     * 연계시스템코드 (공통코드 SYSTEM_SOURCE_CD — WARD / ER / OP)
+     *
+     * ⚠ 2026-07-16 의 Open Question 은 해소됐다. (2026-08-26)
+     *   처방코어 payload 가 확정됐고, 코어는 채널 값을 보내지 않는다.
+     *   그래서 연계 수신(LabOrderIntakeService)이 "OP"(외래) 로 고정해서 채운다.
+     *   코어가 outpatient-service 안에 있어 지금은 채널이 외래 하나이기 때문이다.
+     *
+     * ⚠ 코어가 encounterType(OPD|ER|IP) 을 보내기 시작하면 그때 매핑으로 바꾼다.
+     *   이 필드를 없앨 필요는 없다. 프론트 수동 등록 폼은 계속 채널을 직접 고른다.
+     */
     @NotBlank
     @Size(max = 10)
-    @Schema(description = "연계시스템코드", example = "GR2", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "연계시스템코드 (공통코드 SYSTEM_SOURCE_CD)", example = "OP", requiredMode = Schema.RequiredMode.REQUIRED)
     private String systemCode;
-
-    /**
-     * ⚠ @NotBlank 를 뗐다. 연계 수신(LabOrderIntakeService)이 이 값을 채우지 못하기 때문이다.
-     *   환자번호 발급 주체가 없어 코어도 patient-service 도 갖고 있지 않다. (2026-08-25 결정)
-     *   프론트 수동 등록 폼은 계속 입력받으므로 그쪽 경로는 값이 들어온다.
-     */
-    @Size(max = 20)
-    @Schema(description = "환자번호 (화면 표시용 업무번호, 발급 주체 미정이라 없을 수 있음)", example = "P00012345")
-    private String patientNo;
 
     @NotBlank
     @Size(max = 36)

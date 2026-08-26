@@ -37,11 +37,16 @@ public class ImageReceptionDetailDto {
     @Schema(description = "응급여부 (Y/N)", example = "N")
     private String urgencyYn;
 
-    @Schema(description = "환자번호", example = "P00012345")
-    private String patientNo;
-
     @Schema(description = "처방의번호", example = "D0032")
     private String physicianNo;
+
+    /**
+     * 환자ID (patient-service 내부 식별자).
+     * ⚠ 화면에 찍는 값이 아니라 환자명을 조회하는 열쇠다.
+     *   환자번호는 화면·DTO 에서 뺐으므로(2026-08-25) 환자를 알아보는 값은 이름뿐이다.
+     */
+    @Schema(description = "환자ID (환자명 조회용)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
+    private String patientId;
 
     @Schema(description = "촬영항목코드 목록 (공통코드 IMG_ITEM_CD)", example = "[\"01\",\"02\"]")
     private List<String> imageItemCodes;

@@ -27,9 +27,6 @@ public class LabOrderSummaryDto {
     @Schema(description = "오더번호", example = "LO-2026-000123")
     private String labOrderNo;
 
-    @Schema(description = "환자번호", example = "PA-2026-000456")
-    private String patientNo;
-
     @Schema(description = "오더상태코드", example = "RECEIVED")
     private String orderStatusCode;
 

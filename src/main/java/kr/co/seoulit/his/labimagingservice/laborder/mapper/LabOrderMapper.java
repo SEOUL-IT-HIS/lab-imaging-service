@@ -24,7 +24,6 @@ public interface LabOrderMapper {
     @Mapping(target = "labReceptionId", source = "reception.labReceptionId")
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
-    @Mapping(target = "patientNo", source = "reception.patientNo")
     LabOrderSummaryDto toResponse(LabOrderEntity order, LabReceptionEntity reception);
 
     /*
@@ -42,7 +41,7 @@ public interface LabOrderMapper {
     @Mapping(target = "receptionNo", source = "reception.receptionNo")
     @Mapping(target = "receptionStatusCode", source = "reception.receptionStatusCode")
     @Mapping(target = "receivedById", source = "reception.receivedById")
-    @Mapping(target = "patientNo", source = "reception.patientNo")
+    @Mapping(target = "patientId", source = "reception.patientId")
     @Mapping(target = "labOrderNo", source = "order.labOrderNo")
     @Mapping(target = "treatTypeCode", source = "order.treatTypeCode")
     @Mapping(target = "urgencyYn", source = "order.urgencyYn")

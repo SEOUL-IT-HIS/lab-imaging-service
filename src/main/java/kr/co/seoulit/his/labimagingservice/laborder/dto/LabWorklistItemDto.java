@@ -43,12 +43,13 @@ public class LabWorklistItemDto {
     @Schema(description = "오더번호", example = "GR2-20260814-001")
     private String labOrderNo;
 
-    @Schema(description = "환자번호 (화면 표시용 업무번호)", example = "P00012345")
-    private String patientNo;
-
     /**
-     * 하위 작업(검체 등록 등)이 요청 본문에 환자ID를 담아야 해서 함께 내려준다.
-     * 화면에 표시하는 값은 patientNo 다.
+     * 하위 작업(검체 등록 등)의 요청 본문에 담고, 화면의 환자명 조회에도 쓴다.
+     *
+     * ⚠ 환자번호(patient_no)는 화면·DTO 에서 모두 뺐다. (2026-08-25 결정)
+     *   전체 MSA 에서 환자번호를 어떻게 쓸지 정해지기 전까지 쓰지 않기로 했고,
+     *   발급 주체도 아직 없다. 컬럼은 남아 있으니 결정되면 다시 열면 된다.
+     *   그동안 화면에서 환자를 알아보는 값은 환자명이며, patientId 로 조회한다.
      */
     @Schema(description = "환자ID (patient-service 내부 식별자)",
             example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")

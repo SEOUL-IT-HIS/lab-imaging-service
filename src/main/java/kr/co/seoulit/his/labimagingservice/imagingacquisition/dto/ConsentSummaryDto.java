@@ -29,9 +29,6 @@ public class ConsentSummaryDto {
     @Schema(description = "영상오더ID", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
     private String imageOrderId;
 
-    @Schema(description = "환자번호 (화면 표시용 업무번호)", example = "P00012345")
-    private String patientNo;
-
     @Schema(description = "동의서유형코드", example = "조영제사용")
     private String consentTypeCode;
 

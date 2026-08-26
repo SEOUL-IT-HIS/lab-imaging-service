@@ -61,7 +61,8 @@ public class LabWorklistService {
         if (receptions.isEmpty()) {
             return List.of();
         }
-
+        // ⚠ Xxx::method 는 메서드 참조다. r -> r.getLabReceptionId() 의 축약형이고,
+        //   스트림이 흘려보내는 요소 하나하나가 그 메서드의 수신자가 된다.
         List<String> receptionIds = receptions.stream()
                 .map(LabReceptionEntity::getLabReceptionId)
                 .toList();
@@ -94,7 +95,9 @@ public class LabWorklistService {
         return labScheduleRepository
                 .findByLabReception_LabReceptionIdInAndLatestYn(receptionIds, YES).stream()
                 .collect(Collectors.toMap(
+                        // getLabReception() 을 거쳐 두 단계로 들어가야 해서 :: 로 못 줄인다
                         schedule -> schedule.getLabReception().getLabReceptionId(),
+                        // 한 번만 부르면 되니 메서드 참조로 줄인다
                         LabScheduleEntity::getScheduledAt));
     }
 

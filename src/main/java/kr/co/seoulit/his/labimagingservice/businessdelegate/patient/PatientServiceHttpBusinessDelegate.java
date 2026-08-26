@@ -19,7 +19,7 @@ import org.springframework.web.client.RestTemplate;
  *
  * 예전에는 환자번호(patientNo)로 patientId를 먼저 조회하는 2단계였다.
  * 2026-08-06 참조 컬럼을 patient_id 기준으로 전환하면서 호출부가 patientId를 직접 넘기게 되어
- * by-number 조회 단계가 필요 없어졌다. (patient_no는 화면 표시용으로만 남아 있다)
+ * by-number 조회 단계가 필요 없어졌다. (patient_no 는 컬럼만 남아 있고 쓰지 않는다 — 2026-08-25)
  *
  * ⚠ 오더 접수 1건당 원격 호출이 1회 발생한다. 목록 화면처럼 여러 건을 다뤄야 하면
  *   POST /api/patients/batch-query (일괄 조회)로 바꿔야 한다. (개발표준가이드 14.1 배치 조회)

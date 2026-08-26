@@ -79,7 +79,6 @@ public class ConsentService {
         }
 
         ConsentEntity consent = ConsentEntity.builder()
-                .patientNo(request.getPatientNo())
                 .patientId(request.getPatientId())
                 .consentTypeCode(request.getConsentTypeCode())
                 .documentTemplateId(request.getDocumentTemplateId())

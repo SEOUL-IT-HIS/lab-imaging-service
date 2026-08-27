@@ -108,15 +108,6 @@ public class LabReceptionEntity extends BaseAuditEntity {
             this.labReceptionId = UUID.randomUUID().toString();
         }
     }
-    public void addSchedule(LabScheduleEntity schedule) {
-        this.schedules.add(schedule);
-        schedule.assignLabReception(this);
-    }
-    public void addSpecimen(SpecimenEntity specimen) {
-        this.specimens.add(specimen);
-        specimen.assignLabReception(this);
-    }
-
     /**
      * 워크리스트에서 제외한다. (담당자가 처리하지 않기로 판단한 건)
      *

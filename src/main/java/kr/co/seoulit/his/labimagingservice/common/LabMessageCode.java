@@ -58,6 +58,9 @@ public final class LabMessageCode {
     public static final String LAB030 = "LAB030"; // 영상 오더 정보를 찾을 수 없습니다.
     public static final String LAB031 = "LAB031"; // 이미 등록된 동의가 있습니다. (같은 유형, 철회 전)
 
+    // ---- 연계 수신 (Kafka/REST) ----
+    public static final String LAB032 = "LAB032"; // 연계 수신 이력 조회에 성공했습니다.
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

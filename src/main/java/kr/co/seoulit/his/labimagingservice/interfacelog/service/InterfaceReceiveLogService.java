@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * 연계 수신 로그 서비스
@@ -33,8 +35,15 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class InterfaceReceiveLogService {
 
-    /** 수신 직후의 상태. 아직 처리 결과를 모른다는 뜻이다. (result_code 가 VARCHAR2(10) 이라 8자면 들어간다) */
-    private static final String RESULT_RECEIVED = "RECEIVED";
+    /**
+     * 수신 직후의 상태. 아직 처리 결과를 모른다는 뜻이다.
+     * (result_code 가 VARCHAR2(10) 이라 8자면 들어간다)
+     *
+     * ⚠ 이 값은 "처리 중"이지 "처리 완료"가 아니다.
+     *   Kafka 재시도 때 이 상태를 완료로 오해하면, 아직 끝나지 않은 요청을 거절로 회신해 버린다.
+     *   그래서 public 으로 열어 Consumer 가 종료 여부를 판단할 수 있게 한다.
+     */
+    public static final String RESULT_RECEIVED = "RECEIVED";
 
     private final InterfaceReceiveLogRepository interfaceReceiveLogRepository;
 
@@ -47,15 +56,45 @@ public class InterfaceReceiveLogService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String logReceived(InterfaceOrderType orderType, String systemCode, String rawMessage) {
+        return logReceived(orderType, systemCode, rawMessage, null);
+    }
+
+    /**
+     * Kafka 수신용. 이벤트ID까지 함께 남긴다.
+     *
+     * ⚠ eventId 가 멱등 판정의 기준이라 반드시 기록해야 한다. 이 값이 없으면
+     *   같은 이벤트가 다시 왔을 때 "이미 처리했다"를 알 방법이 없다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String logReceived(InterfaceOrderType orderType, String systemCode,
+                              String rawMessage, String eventId) {
         InterfaceReceiveLogEntity log = InterfaceReceiveLogEntity.builder()
                 .orderTypeCode(orderType)
                 .systemCode(systemCode)
                 .rawMessage(rawMessage)
                 .resultCode(RESULT_RECEIVED)
                 .receivedAt(LocalDateTime.now())
+                .eventId(eventId)
                 .build();
 
         return interfaceReceiveLogRepository.save(log).getInterfaceReceiveLogId();
+    }
+
+    /**
+     * 이미 처리한 이벤트인지 확인한다.
+     *
+     * ⚠ 읽기 전용이라 REQUIRES_NEW 가 아니어도 되지만, 이 서비스의 다른 메서드와 마찬가지로
+     *   호출한 쪽(Consumer)의 트랜잭션에 얽히지 않게 둔다. Consumer 는 트랜잭션 밖에서 돈다.
+     */
+    @Transactional(readOnly = true)
+    public Optional<InterfaceReceiveLogEntity> findByEventId(String eventId) {
+        return interfaceReceiveLogRepository.findByEventId(eventId);
+    }
+
+    /** 시연·디버깅용 최근 수신 이력 (최신 20건). */
+    @Transactional(readOnly = true)
+    public List<InterfaceReceiveLogEntity> findRecent() {
+        return interfaceReceiveLogRepository.findTop20ByOrderByReceivedAtDesc();
     }
 
     /**

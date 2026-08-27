@@ -65,18 +65,33 @@ public class InterfaceReceiveLogEntity extends BaseAuditEntity {
     private LocalDateTime receivedAt;
 
     /**
+     * Kafka 이벤트 고유 ID. 멱등 판정 기준.
+     *
+     * ⚠ REST 수신에는 이 값이 없으므로 nullable 이다. Kafka 수신 건에만 채운다.
+     *   DB 에 조건부 UNIQUE(UX_IRLG_EVENT)를 걸어 두었는데, Oracle 은 NULL 을 UNIQUE 검사에서
+     *   제외하므로 event_id 가 없는 REST 수신 건은 몇 건이 쌓여도 영향받지 않는다.
+     *
+     * ⚠ Kafka 는 at-least-once 라 같은 이벤트가 반드시 두 번 이상 온다.
+     *   "몇 번 오느냐"가 아니라 "두 번 와도 한 번만 처리되느냐"를 이 값으로 보장한다.
+     */
+    @Column(name = "event_id", length = 36)
+    private String eventId;
+
+    /**
      * ⚠ PK(interfaceReceiveLogId)는 빌더에서 제외한다. @PrePersist 에서 채운다.
      *   errorMessage 도 제외한다. 수신 시점에는 아직 결과를 모르고, markResult 로만 채워야
      *   "결과 없이 오류메시지만 있는" 행이 생기지 않는다.
      */
     @Builder
     public InterfaceReceiveLogEntity(InterfaceOrderType orderTypeCode, String systemCode,
-                                     String rawMessage, String resultCode, LocalDateTime receivedAt) {
+                                     String rawMessage, String resultCode, LocalDateTime receivedAt,
+                                     String eventId) {
         this.orderTypeCode = orderTypeCode;
         this.systemCode = systemCode;
         this.rawMessage = rawMessage;
         this.resultCode = resultCode;
         this.receivedAt = receivedAt;
+        this.eventId = eventId;
     }
 
     @PrePersist

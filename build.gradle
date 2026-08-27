@@ -25,6 +25,12 @@ dependencies {
     // (패키지도 Boot 3의 org.springframework.boot.web.client → org.springframework.boot.restclient 로 이동)
     implementation 'org.springframework.boot:spring-boot-restclient'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // Kafka 연동 (처방코어 <-> 검사). 버전은 Boot BOM 이 관리하므로 명시하지 않는다.
+    // ⚠ Boot 4 에는 spring-boot-starter-kafka 가 없다. 자동설정은 spring-boot-kafka 모듈에 들어 있고
+    //   (KafkaAutoConfiguration / KafkaProperties), spring-kafka 는 여기에 딸려 온다.
+    //   spring-kafka 만 넣으면 KafkaTemplate·KafkaAdmin 빈이 자동 생성되지 않는다.
+    //   (spring-boot-restclient 처럼 Boot 4 에서 모듈이 쪼개진 사례)
+    implementation 'org.springframework.boot:spring-boot-kafka'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.mapstruct:mapstruct:1.6.3'

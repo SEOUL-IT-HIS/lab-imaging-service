@@ -14,17 +14,14 @@ import java.util.Optional;
 public interface SpecimenRepository extends JpaRepository<SpecimenEntity, String> {
 
     /**
-     * TODO(ZP2-75 바코드 검증): 호출하는 코드가 아직 없다. 바코드 조회 엔드포인트를 만들 때 쓴다.
-     *   지우지 않고 두는 이유는 그 작업이 확정된 후속 항목이기 때문이다.
-     *   (SpecimenAcceptanceController 의 TODO 참고)
+     * 검체바코드로 단건 조회. (ZP2-75 바코드 검증 — SpecimenService.getSpecimenByBarcode)
+     * specimen_barcode 에 UNIQUE 제약이 있어 결과는 최대 1건이다.
      */
     Optional<SpecimenEntity> findBySpecimenBarcode(String  specimenBarcode);
 
     /**
-     * TODO(채번 충돌 확인): 호출하는 코드가 아직 없다.
-     *   SpecimenService.generateSpecimenBarcode 가 UUID 앞 8자리로 채번하면서 중복을 확인하지 않는다.
-     *   충돌하면 specimen_barcode UNIQUE 위반이 LAB999(500)로 나간다. 확률은 낮지만,
-     *   위 바코드 작업을 할 때 이 메서드로 재채번 루프를 넣을 것.
+     * 채번한 바코드가 이미 쓰이고 있는지 확인한다.
+     * (SpecimenService.generateSpecimenBarcode 의 재채번 루프에서 쓴다)
      */
     boolean existsBySpecimenBarcode(String  specimenBarcode);
 

@@ -20,9 +20,10 @@ import java.util.List;
  * 대응 유스케이스: UC-SPC-03 검체식별관리 (Jira ZP2-7)
  *
  * 엔드포인트
- *   POST   /api/lab-imaging/specimens                검체 채취정보 등록 (ZP2-68)
- *   GET    /api/lab-imaging/specimens?judgedYn=      검체 목록 조회 (판정여부 필터, ZP2-79)
- *   GET    /api/lab-imaging/specimens/{specimenId}   검체 단건 조회
+ *   POST   /api/lab-imaging/specimens                       검체 채취정보 등록 (ZP2-68)
+ *   GET    /api/lab-imaging/specimens?judgedYn=             검체 목록 조회 (판정여부 필터, ZP2-79)
+ *   GET    /api/lab-imaging/specimens/barcode/{바코드}      검체 바코드 단건 조회 (ZP2-75)
+ *   GET    /api/lab-imaging/specimens/{specimenId}          검체 단건 조회
  *
  * ⚠ 응답은 항상 ApiResponse<T> 로 감싸고, 성공 메시지는 LabMessageCode 상수를 쓴다.
  *
@@ -58,6 +59,25 @@ public class SpecimenController {
         List<SpecimenSummaryDto> response = specimenService.getSpecimens(judgedYn, receptionNo);
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB019, "검체 목록 조회에 성공했습니다.")
+        );
+    }
+
+    /**
+     * ⚠ 아래 /{specimenId} 보다 위에 둔다.
+     *   /barcode/{...} 는 앞에 고정 문자열 세그먼트가 있어 Spring 이 더 구체적인 패턴으로 먼저 고르므로
+     *   순서를 바꿔도 동작은 같다. 읽는 사람이 "바코드가 specimenId 로 잡히는 것 아닌가" 하고
+     *   멈추지 않도록 구체적인 쪽을 위에 두는 것이다.
+     */
+    @Operation(summary = "검체 바코드 단건 조회",
+            description = "검체바코드로 검체를 조회한다. 검사실에 도착한 검체의 바코드를 입력해 "
+                    + "판정 대상 검체를 지목할 때 쓴다. 해당 바코드가 없으면 LAB020 으로 응답한다. "
+                    + "지금 선택한 접수의 검체인지 여부는 서버가 판단하지 않으며, 응답의 receptionNo 로 화면이 대조한다.")
+    @GetMapping("/barcode/{specimenBarcode}")
+    public ResponseEntity<ApiResponse<SpecimenSummaryDto>> getSpecimenByBarcode(
+            @PathVariable String specimenBarcode) {
+        SpecimenSummaryDto response = specimenService.getSpecimenByBarcode(specimenBarcode);
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB019, "검체 정보 단건 조회에 성공했습니다.")
         );
     }
 

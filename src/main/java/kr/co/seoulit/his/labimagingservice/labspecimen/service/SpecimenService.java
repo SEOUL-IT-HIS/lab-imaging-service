@@ -32,8 +32,8 @@ import java.util.stream.Collectors;
  * ── 구현 현황
  *   ZP2-68 검체 채취정보 등록      : 완료 (createSpecimen)
  *   ZP2-66 필수값/유효성 검증      : 완료 (DTO Bean Validation + 검체용기코드 공통코드 검증)
- *   ZP2-65 검체 바코드 발행        : 채번 완료 (generateSpecimenBarcode)
- *                                   TODO 중복 확인 — SpecimenRepository.existsBySpecimenBarcode 주석 참고
+ *   ZP2-65 검체 바코드 발행        : 완료 (generateSpecimenBarcode — 중복 확인 포함)
+ *   ZP2-75 검체 바코드 검증        : 완료 (getSpecimenByBarcode)
  *   ZP2-79 검체 목록 조회          : 완료. 다만 화면은 접수별 목록만 쓴다.
  *                                   판정여부 필터는 후반 이력 화면용 — getSpecimens 주석 참고
  *
@@ -43,6 +43,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SpecimenService {
+
+    /** 바코드 채번 재시도 상한. 이 횟수를 넘길 확률은 사실상 0이지만, 무한 루프를 막으려고 둔다. */
+    private static final int BARCODE_GENERATION_MAX_ATTEMPTS = 5;
 
     private final SpecimenRepository specimenRepository;
     private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
@@ -161,6 +164,36 @@ public class SpecimenService {
         return specimenMapper.toResponse(specimen, fitnessStatus);
     }
 
+    /**
+     * 검체바코드로 단건 조회. (ZP2-75 바코드 검증)
+     *
+     * ⚠ 조회만 한다. "지금 선택한 접수의 검체인지" 대조는 서버가 하지 않는다.
+     *   서버는 화면이 어느 접수를 보고 있는지 모른다. 그 값을 파라미터로 받아 비교해서 돌려주는 건
+     *   화면이 이미 아는 값을 왕복시키는 것이다. 대조는 응답의 receptionNo 로 화면에서 한다.
+     *   (SpecimenSummaryDto 가 receptionNo 와 fitnessStatus 를 이미 담고 있어 추가 조회가 필요 없다)
+     *
+     * ⚠ 환자·오더 일치 여부를 따로 확인하지 않는다.
+     *   SPECIMEN → LAB_RECEPTION → LAB_ORDER → patient_id 로 이어지므로
+     *   접수번호가 같으면 환자와 오더도 같다. 접수 대조가 곧 환자·오더 대조다.
+     *
+     * 적합상태를 채우는 방식은 getSpecimenById 와 같다. (미판정이면 null)
+     */
+    @Transactional(readOnly = true)
+    public SpecimenSummaryDto getSpecimenByBarcode(String specimenBarcode) {
+        SpecimenEntity specimen = specimenRepository.findBySpecimenBarcode(specimenBarcode)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB020,
+                        "해당 바코드의 검체를 찾을 수 없습니다. (barcode=" + specimenBarcode + ")"
+                ));
+
+        FitnessStatus fitnessStatus = specimenAcceptanceRepository
+                .findBySpecimen_SpecimenId(specimen.getSpecimenId())
+                .map(SpecimenAcceptanceEntity::getFitnessStatusCode)
+                .orElse(null);
+
+        return specimenMapper.toResponse(specimen, fitnessStatus);
+    }
+
     private void validateCode(String groupCode, String code, String fieldLabel) {
         if (!commonCodeCache.isValid(groupCode, code)) {
             throw new LabImagingBusinessException(
@@ -170,8 +203,30 @@ public class SpecimenService {
         }
     }
 
+    /**
+     * 검체바코드를 채번한다. "SP-" + UUID 앞 8자리(대문자).
+     *
+     * ⚠ specimen_barcode 에 UNIQUE 제약이 있다. 중복 확인 없이 저장하면 충돌했을 때
+     *   DataIntegrityViolationException 이 LAB999(500)로 나가, 담당자에게는 원인을 알 수 없는
+     *   오류로 보인다. 바코드로 검체를 지목하는 기능이 생긴 이상 그대로 둘 수 없다. (ZP2-75)
+     *
+     * ⚠ 이 확인만으로 완전하지는 않다. exists 확인과 저장 사이에 다른 트랜잭션이 같은 값을
+     *   넣을 수 있다. 최종 방어선은 DB 의 UNIQUE 제약이고, 이 루프는 충돌 확률을 낮추는 것이다.
+     *   (UUID 앞 8자리는 16^8 ≈ 43억 가지라 실제 충돌은 극히 드물다)
+     *
+     * ⚠ 상한을 넘긴 경우는 LabImagingBusinessException 으로 던지지 않는다.
+     *   그 예외는 GlobalExceptionHandler 에서 무조건 400 이라, 서버 사정으로 실패한 것을
+     *   "요청이 잘못됐다"로 응답하게 된다. 일반 예외로 던져 500 + LAB999 가 나가게 한다.
+     */
     private String generateSpecimenBarcode() {
-        return "SP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        for (int attempt = 0; attempt < BARCODE_GENERATION_MAX_ATTEMPTS; attempt++) {
+            String barcode = "SP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            if (!specimenRepository.existsBySpecimenBarcode(barcode)) {
+                return barcode;
+            }
+        }
+        throw new IllegalStateException(
+                "검체바코드 채번에 실패했습니다. (재시도 " + BARCODE_GENERATION_MAX_ATTEMPTS + "회 초과)");
     }
 
 

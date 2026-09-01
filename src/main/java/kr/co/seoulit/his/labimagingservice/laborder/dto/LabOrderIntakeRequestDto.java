@@ -83,7 +83,7 @@ public class LabOrderIntakeRequestDto {
         @NotBlank
         @Size(max = 20)
         @Schema(description = "검사항목코드 (공통코드 TEST_TYPE_CD)",
-                example = "CBC", requiredMode = Schema.RequiredMode.REQUIRED)
+                example = "01", requiredMode = Schema.RequiredMode.REQUIRED)
         private String itemCode;
 
         /** ⚠ 받되 저장하지 않는다. 표시명은 admin 공통코드를 따른다. (개발표준가이드 14.1 스냅샷 금지) */

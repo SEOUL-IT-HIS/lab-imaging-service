@@ -48,9 +48,12 @@ public class SpecimenAcceptanceEntity extends BaseAuditEntity {
 
     /**
      * ⚠ 길이가 30 이다. 다른 공통코드 컬럼(10)과 다른 것은 실수가 아니다.
-     *   admin 의 SPECIMEN_REJECT_CD 코드값이 INSUFFICIENT(12자)처럼 10자를 넘는다.
-     *   코드값 길이는 admin 이 정하는 것이라 이쪽 컬럼이 맞춰야 한다.
+     *   admin 의 SPECIMEN_REJECT_CD 가 영문 약어(INSUFFICIENT 등)였을 때 10자를 넘겨서 늘린 길이다.
      *   (2026-08-24 — 10자였을 때 부적합 판정이 LAB998 로 막혔다)
+     *
+     * ⚠ 지금은 그 그룹의 코드값이 숫자 2자리(01, 02 ...)로 바뀌어 30자가 필요하지는 않다.
+     *   그래도 줄이지 않는다. 코드값 길이는 admin 이 정하는 것이라 언제든 다시 길어질 수 있고,
+     *   컬럼을 줄이는 순간 같은 장애가 되풀이된다. 넉넉한 쪽으로 남겨 두는 편이 안전하다.
      */
     @Column(name = "unfit_reason_code", length = 30)
     private String unfitReasonCode;

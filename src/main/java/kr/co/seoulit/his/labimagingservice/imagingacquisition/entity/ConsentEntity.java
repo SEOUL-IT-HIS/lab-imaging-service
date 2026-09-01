@@ -70,10 +70,13 @@ public class ConsentEntity extends BaseAuditEntity {
     private LocalDateTime withdrawnAt;
 
     /**
-     * ⚠ 길이가 30 이다. admin 의 CONSENT_WITHDRAW_CD 코드값이 CONDITION_CHANGE(16자)처럼
-     *   10자를 넘는다. 코드값 길이는 admin 이 정하므로 이쪽 컬럼이 맞춰야 한다.
-     *   철회 기능을 붙이는 순간 10자였으면 바로 실패했을 것이다.
+     * ⚠ 길이가 30 이다. admin 의 CONSENT_WITHDRAW_CD 가 영문 약어(CONDITION_CHANGE 등)였을 때
+     *   10자를 넘겨서 늘린 길이다. 철회 기능을 붙이는 순간 10자였으면 바로 실패했을 것이다.
      *   (2026-08-24 — 같은 원인으로 검체 부적합사유가 막힌 뒤 함께 확인)
+     *
+     * ⚠ 지금은 그 그룹의 코드값이 숫자 2자리(01, 02 ...)로 바뀌어 30자가 필요하지는 않다.
+     *   그래도 줄이지 않는다. 코드값 길이는 admin 이 정하는 것이라 언제든 다시 길어질 수 있다.
+     *   (SpecimenAcceptanceEntity.unfitReasonCode 와 같은 판단)
      */
     @Column(name = "withdrawn_reason_code", length = 30)
     private String withdrawnReasonCode;

@@ -28,7 +28,7 @@ public class ConsentWithdrawRequestDto {
     /** ⚠ 30 인 이유는 ConsentEntity.withdrawnReasonCode 주석 참고 (admin 코드값이 10자를 넘는다) */
     @NotBlank
     @Size(max = 30)
-    @Schema(description = "철회사유코드 (공통코드 CONSENT_WITHDRAW_CD)", example = "CONDITION_CHANGE", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "철회사유코드 (공통코드 CONSENT_WITHDRAW_CD)", example = "01", requiredMode = Schema.RequiredMode.REQUIRED)
     private String withdrawnReasonCode;
 
     @NotNull

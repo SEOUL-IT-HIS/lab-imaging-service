@@ -17,6 +17,6 @@ public class LabOrderItemRequestDto {
 
     @NotBlank
     @Size(max = 20)
-    @Schema(description = "검사항목코드", example = "CBC", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "검사항목코드", example = "01", requiredMode = Schema.RequiredMode.REQUIRED)
     private String labItemCode;
 }

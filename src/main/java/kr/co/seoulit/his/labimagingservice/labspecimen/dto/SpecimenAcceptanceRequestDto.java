@@ -53,7 +53,7 @@ public class SpecimenAcceptanceRequestDto {
 
     /** ⚠ 30 인 이유는 SpecimenAcceptanceEntity.unfitReasonCode 주석 참고 (admin 코드값이 10자를 넘는다) */
     @Size(max = 30)
-    @Schema(description = "부적합사유코드 (공통코드 SPECIMEN_REJECT_CD, 부적합일 때만)", example = "INSUFFICIENT")
+    @Schema(description = "부적합사유코드 (공통코드 SPECIMEN_REJECT_CD, 부적합일 때만)", example = "03")
     private String unfitReasonCode;
 
     @NotBlank

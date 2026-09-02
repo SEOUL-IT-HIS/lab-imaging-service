@@ -61,6 +61,17 @@ public final class LabMessageCode {
     // ---- 연계 수신 (Kafka/REST) ----
     public static final String LAB032 = "LAB032"; // 연계 수신 이력 조회에 성공했습니다.
 
+    // ---- 일반검사 결과 등록/확정 (UC-RST-01) ----
+    public static final String LAB033 = "LAB033"; // 검사 결과가 등록되었습니다.
+    public static final String LAB034 = "LAB034"; // 검사 결과 조회에 성공했습니다. (목록/단건 공용)
+    public static final String LAB035 = "LAB035"; // 검사항목 정보를 찾을 수 없습니다.
+    public static final String LAB036 = "LAB036"; // 이미 결과가 등록된 검사항목입니다. (중복)
+    public static final String LAB037 = "LAB037"; // 등록된 검사 결과를 찾을 수 없습니다.
+    public static final String LAB038 = "LAB038"; // 검사 결과가 수정되었습니다.
+    public static final String LAB039 = "LAB039"; // 검사 결과가 확정되었습니다.
+    public static final String LAB040 = "LAB040"; // 이미 확정된 결과는 수정할 수 없습니다.
+    public static final String LAB041 = "LAB041"; // 이미 확정된 결과입니다. (재확정 불가)
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

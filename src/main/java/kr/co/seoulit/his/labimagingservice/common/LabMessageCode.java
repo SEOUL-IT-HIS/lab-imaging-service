@@ -66,6 +66,8 @@ public final class LabMessageCode {
     public static final String LAB043 = "LAB043"; // 영상 접수가 워크리스트에서 제외되었습니다.
     public static final String LAB044 = "LAB044"; // 영상 접수가 워크리스트로 복구되었습니다.
     public static final String LAB045 = "LAB045"; // 복구할 수 없는 접수입니다. (제외 상태가 아님)
+    public static final String LAB046 = "LAB046"; // 이미 등록된 영상 일정이 있습니다. (재등록 대상)
+    public static final String LAB047 = "LAB047"; // 이 접수의 촬영항목이 아닙니다.
 
     // ---- 일반검사 결과 등록/확정 (UC-RST-01) ----
     public static final String LAB033 = "LAB033"; // 검사 결과가 등록되었습니다.

@@ -5,7 +5,11 @@ import kr.co.seoulit.his.labimagingservice.laborder.dto.LabWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.WorklistStep;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.mapper.LabWorklistMapper;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
+import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultRepository;
 import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
 import kr.co.seoulit.his.labimagingservice.labschedule.repository.LabScheduleRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenAcceptanceEntity;
@@ -44,10 +48,15 @@ public class LabWorklistService {
     private static final String YES = "Y";
     private static final String NO = "N";
 
+    /** 결과상태 확정(02). LabResultService 의 STATUS_CONFIRMED 와 같은 값이다. */
+    private static final String RESULT_STATUS_CONFIRMED = "02";
+
     private final LabReceptionRepository labReceptionRepository;
     private final LabScheduleRepository labScheduleRepository;
     private final SpecimenRepository specimenRepository;
     private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
+    private final LabOrderItemRepository labOrderItemRepository;
+    private final LabResultRepository labResultRepository;
     private final LabWorklistMapper labWorklistMapper;
 
     /**
@@ -72,12 +81,27 @@ public class LabWorklistService {
         Map<String, SpecimenAcceptanceEntity> acceptanceBySpecimenId =
                 findAcceptances(specimensByReceptionId);
 
+        /*
+         * 결과는 접수가 아니라 오더에 매달린다. (LAB_ORDER → LAB_ORDER_ITEM → LAB_RESULT)
+         * LAB_ORDER : LAB_RECEPTION = 1:N 이라 한 오더의 접수가 여럿이면 항목·결과를 공유한다.
+         * 그래서 오더ID 로 모아 두 번 조회하고 접수마다 같은 값을 붙인다.
+         */
+        List<String> orderIds = receptions.stream()
+                .map(reception -> reception.getLabOrder().getLabOrderId())
+                .distinct()
+                .toList();
+
+        Map<String, List<LabOrderItemEntity>> itemsByOrderId = findOrderItems(orderIds);
+        Map<String, LabResultEntity> resultByItemId = findResults(itemsByOrderId);
+
         return receptions.stream()
                 .map(reception -> toItem(
                         reception,
                         scheduledAtByReceptionId.get(reception.getLabReceptionId()),
                         specimensByReceptionId.getOrDefault(reception.getLabReceptionId(), List.of()),
-                        acceptanceBySpecimenId))
+                        acceptanceBySpecimenId,
+                        itemsByOrderId.getOrDefault(reception.getLabOrder().getLabOrderId(), List.of()),
+                        resultByItemId))
                 .toList();
     }
 
@@ -126,10 +150,36 @@ public class LabWorklistService {
                         acceptance -> acceptance));
     }
 
+    /** 오더ID → 그 오더의 검사항목 목록. 항목이 없는 오더는 키가 없다. */
+    private Map<String, List<LabOrderItemEntity>> findOrderItems(List<String> orderIds) {
+        return labOrderItemRepository.findByLabOrderIdIn(orderIds).stream()
+                .collect(Collectors.groupingBy(item -> item.getLabOrder().getLabOrderId()));
+    }
+
+    /** 검사항목ID → 결과. 결과가 없는 항목은 키가 없다. */
+    private Map<String, LabResultEntity> findResults(
+            Map<String, List<LabOrderItemEntity>> itemsByOrderId) {
+
+        List<String> itemIds = itemsByOrderId.values().stream()
+                .flatMap(List::stream)
+                .map(LabOrderItemEntity::getLabOrderItemId)
+                .toList();
+
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        return labResultRepository.findByLabOrderItem_LabOrderItemIdIn(itemIds).stream()
+                .collect(Collectors.toMap(
+                        result -> result.getLabOrderItem().getLabOrderItemId(),
+                        result -> result));
+    }
+
     private LabWorklistItemDto toItem(LabReceptionEntity reception,
                                       LocalDateTime scheduledAt,
                                       List<SpecimenEntity> specimens,
-                                      Map<String, SpecimenAcceptanceEntity> acceptanceBySpecimenId) {
+                                      Map<String, SpecimenAcceptanceEntity> acceptanceBySpecimenId,
+                                      List<LabOrderItemEntity> orderItems,
+                                      Map<String, LabResultEntity> resultByItemId) {
 
         int specimenCount = specimens.size();
 
@@ -160,6 +210,18 @@ public class LabWorklistService {
          */
         boolean recollectionPending = recollectionCount > 0 && specimenCount <= recollectionCount;
 
+        int labItemCount = orderItems.size();
+
+        List<LabResultEntity> results = orderItems.stream()
+                .map(item -> resultByItemId.get(item.getLabOrderItemId()))
+                .filter(result -> result != null)
+                .toList();
+
+        int resultCount = results.size();
+        int confirmedResultCount = (int) results.stream()
+                .filter(result -> RESULT_STATUS_CONFIRMED.equals(result.getResultStatusCode()))
+                .count();
+
         WorklistStep nextStep = decideNextStep(
                 scheduledAt, specimenCount, judgedCount, recollectionPending);
 
@@ -169,6 +231,9 @@ public class LabWorklistService {
                 specimenCount,
                 judgedCount,
                 recollectionPending ? YES : NO,
+                labItemCount,
+                resultCount,
+                confirmedResultCount,
                 nextStep);
     }
 

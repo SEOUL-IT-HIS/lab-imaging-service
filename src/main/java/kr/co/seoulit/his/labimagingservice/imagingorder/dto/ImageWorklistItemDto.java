@@ -68,8 +68,25 @@ public class ImageWorklistItemDto {
 
     // ---- 진행 상태 ----
 
-    @Schema(description = "촬영 예정일시. 일정 미등록이면 null", example = "2026-09-05T09:30:00")
+    /**
+     * ⚠ 촬영항목 중 "가장 이른" 예정일시다. (2026-09-03 — 일정이 항목 단위로 바뀜)
+     *   목록 한 줄에 시각 하나만 보여줘야 하고, 담당자가 알고 싶은 건 "이 환자가 언제 오는가"라
+     *   첫 촬영 시각이 답이다. 항목별 시각은 오른쪽 일정 탭에서 본다.
+     */
+    @Schema(description = "가장 이른 촬영 예정일시. 일정이 하나도 없으면 null",
+            example = "2026-09-05T09:30:00")
     private LocalDateTime scheduledAt;
+
+    /**
+     * ⚠ 일정도 검체·결과처럼 개수로 내려준다.
+     *   촬영항목이 여러 개면 "3건 중 1건 일정" 같은 중간 상태가 실제로 생긴다.
+     *   Y/N 으로는 그 상태를 표현할 수 없다.
+     */
+    @Schema(description = "촬영항목 수", example = "3")
+    private int imageItemCount;
+
+    @Schema(description = "일정이 잡힌 촬영항목 수", example = "1")
+    private int scheduledItemCount;
 
     /**
      * ⚠ "철회되지 않은 동의가 하나라도 있는가"다. 유형별 완비 여부가 아니다.

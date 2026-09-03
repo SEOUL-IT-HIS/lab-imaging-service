@@ -34,11 +34,15 @@ public interface ImageWorklistMapper {
     @Mapping(target = "exclusionReason", source = "reception.exclusionReason")
     @Mapping(target = "excludedAt", source = "reception.excludedAt")
     @Mapping(target = "scheduledAt", source = "scheduledAt")
+    @Mapping(target = "imageItemCount", source = "imageItemCount")
+    @Mapping(target = "scheduledItemCount", source = "scheduledItemCount")
     @Mapping(target = "consentYn", source = "consentYn")
     @Mapping(target = "imageFileCount", source = "imageFileCount")
     @Mapping(target = "nextStep", source = "nextStep")
     ImageWorklistItemDto toWorklistItem(ImageReceptionEntity reception,
                                         LocalDateTime scheduledAt,
+                                        int imageItemCount,
+                                        int scheduledItemCount,
                                         String consentYn,
                                         int imageFileCount,
                                         ImageWorklistStep nextStep);

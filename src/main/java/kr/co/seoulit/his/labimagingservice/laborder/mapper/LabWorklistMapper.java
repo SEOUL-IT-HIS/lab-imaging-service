@@ -35,11 +35,17 @@ public interface LabWorklistMapper {
     @Mapping(target = "specimenCount", source = "specimenCount")
     @Mapping(target = "judgedCount", source = "judgedCount")
     @Mapping(target = "recollectionRequestedYn", source = "recollectionRequestedYn")
+    @Mapping(target = "labItemCount", source = "labItemCount")
+    @Mapping(target = "resultCount", source = "resultCount")
+    @Mapping(target = "confirmedResultCount", source = "confirmedResultCount")
     @Mapping(target = "nextStep", source = "nextStep")
     LabWorklistItemDto toWorklistItem(LabReceptionEntity reception,
                                       LocalDateTime scheduledAt,
                                       int specimenCount,
                                       int judgedCount,
                                       String recollectionRequestedYn,
+                                      int labItemCount,
+                                      int resultCount,
+                                      int confirmedResultCount,
                                       WorklistStep nextStep);
 }

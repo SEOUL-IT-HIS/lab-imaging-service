@@ -72,10 +72,18 @@ public class ImageOrderService {
                         LabMessageCode.LAB015,
                         "영상 촬영 접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
 
-        // 목록과 같은 정보를 보여주기 위해 예정일시도 채운다. (일정 미등록이면 null)
+        /*
+         * 목록과 같은 정보를 보여주기 위해 예정일시도 채운다. (일정 미등록이면 null)
+         *
+         * ⚠ 일정이 촬영항목마다 1건이라 접수 하나에 최종 일정이 여러 건이다. (2026-09-03)
+         *   접수 한 줄에 시각 하나만 보여줘야 하므로 "가장 이른 예정일시"를 쓴다.
+         *   담당자가 접수 목록에서 알고 싶은 건 "이 환자가 언제 오는가"이고, 그건 첫 촬영 시각이다.
+         */
         LocalDateTime scheduledAt = imageScheduleRepository
                 .findByImageReception_ImageReceptionIdAndLatestYn(reception.getImageReceptionId(), LATEST_YN)
+                .stream()
                 .map(ImageScheduleEntity::getScheduledAt)
+                .min(LocalDateTime::compareTo)
                 .orElse(null);
 
         return imageOrderMapper.toDetailResponse(reception.getImageOrder(), reception, scheduledAt);
@@ -121,11 +129,17 @@ public class ImageOrderService {
                 .map(ImageReceptionEntity::getImageReceptionId)
                 .toList();
 
+        /*
+         * ⚠ toMap 을 쓰면 안 된다. 일정이 항목 단위라 접수 하나가 여러 행으로 나오고,
+         *   접수ID 를 키로 삼는 순간 IllegalStateException(Duplicate key)이 난다. (2026-09-03)
+         *   접수마다 "가장 이른 예정일시" 하나로 접는다.
+         */
         return imageScheduleRepository
                 .findByImageReception_ImageReceptionIdInAndLatestYn(receptionIds, LATEST_YN).stream()
                 .collect(Collectors.toMap(
                         schedule -> schedule.getImageReception().getImageReceptionId(),
-                        ImageScheduleEntity::getScheduledAt));
+                        ImageScheduleEntity::getScheduledAt,
+                        (earlier, later) -> earlier.isBefore(later) ? earlier : later));
     }
 
     /**

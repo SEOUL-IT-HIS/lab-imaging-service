@@ -21,6 +21,12 @@ public class ImageScheduleResponseDto {
     @Schema(description = "영상접수ID (IMAGE_RECEPTION 참조, UUID)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
     private String imageReceptionId;
 
+    @Schema(description = "촬영항목ID", example = "9c8b7a6f-1234-4e5f-9a0b-1c2d3e4f5a6b")
+    private String imageOrderItemId;
+
+    @Schema(description = "촬영항목코드 (공통코드 IMG_ITEM_CD)", example = "02")
+    private String imageItemCode;
+
     @Schema(description = "영상촬영실코드", example = "공통코드")
     private String roomCode;
 

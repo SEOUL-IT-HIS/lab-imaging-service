@@ -22,6 +22,21 @@ public interface LabOrderItemRepository extends JpaRepository<LabOrderItemEntity
      * ⚠ 정렬은 created_at asc — 오더에 담긴 순서 그대로 보여준다.
      *   담당자가 처방을 보며 대조하는 화면이라 순서가 흔들리면 안 된다.
      */
+    /**
+     * 여러 오더의 검사항목을 한 번에 조회한다. (워크리스트 진행상태 조립용)
+     *
+     * ⚠ 접수가 아니라 오더로 모은다. LAB_ORDER_ITEM 은 오더에 붙고,
+     *   LAB_ORDER : LAB_RECEPTION = 1:N 이라 한 오더의 접수가 여럿이면 항목을 공유한다.
+     *   접수마다 조회하면 행 수만큼 쿼리가 나간다(N+1).
+     */
+    @Query("""
+            select i from LabOrderItemEntity i
+            join fetch i.labOrder o
+            where o.labOrderId in :labOrderIds
+            order by i.createdAt asc
+            """)
+    List<LabOrderItemEntity> findByLabOrderIdIn(java.util.Collection<String> labOrderIds);
+
     @Query("""
             select i from LabOrderItemEntity i
             join fetch i.labOrder o

@@ -4,7 +4,9 @@ import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ConsentRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistStep;
+import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
+import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.mapper.ImageWorklistMapper;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.imagingschedule.entity.ImageScheduleEntity;
@@ -55,6 +57,7 @@ public class ImageWorklistService {
     private final ImageReceptionRepository imageReceptionRepository;
     private final ImageScheduleRepository imageScheduleRepository;
     private final ConsentRepository consentRepository;
+    private final ImageOrderItemRepository imageOrderItemRepository;
     private final ImageWorklistMapper imageWorklistMapper;
 
     /**
@@ -83,7 +86,26 @@ public class ImageWorklistService {
                 .distinct()
                 .toList();
 
-        Map<String, LocalDateTime> scheduledAtByReceptionId = findScheduledAt(receptionIds);
+        /*
+         * ⚠ 접수마다 최종 일정이 여러 건이다(촬영항목마다 1건). 두 값을 함께 뽑는다.
+         *   - 가장 이른 예정일시 : 목록 한 줄에 보여줄 시각
+         *   - 일정이 잡힌 항목 수 : "3건 중 1건" 진행도
+         */
+        List<ImageScheduleEntity> schedules = imageScheduleRepository
+                .findByImageReception_ImageReceptionIdInAndLatestYn(receptionIds, YES);
+
+        Map<String, LocalDateTime> scheduledAtByReceptionId = findEarliestScheduledAt(schedules);
+        Map<String, Long> scheduledItemCountByReceptionId = schedules.stream()
+                .collect(Collectors.groupingBy(
+                        schedule -> schedule.getImageReception().getImageReceptionId(),
+                        Collectors.counting()));
+
+        Map<String, Long> itemCountByOrderId = imageOrderItemRepository
+                .findByImageOrder_ImageOrderIdIn(orderIds).stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getImageOrder().getImageOrderId(),
+                        Collectors.counting()));
+
         Set<String> orderIdsWithConsent = Set.copyOf(
                 consentRepository.findOrderIdsWithValidConsent(orderIds));
 
@@ -91,6 +113,10 @@ public class ImageWorklistService {
                 .map(reception -> toItem(
                         reception,
                         scheduledAtByReceptionId.get(reception.getImageReceptionId()),
+                        itemCountByOrderId
+                                .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue(),
+                        scheduledItemCountByReceptionId
+                                .getOrDefault(reception.getImageReceptionId(), 0L).intValue(),
                         orderIdsWithConsent.contains(reception.getImageOrder().getImageOrderId())))
                 .toList();
     }
@@ -104,24 +130,34 @@ public class ImageWorklistService {
         return imageReceptionRepository.findWorklistAll();
     }
 
-    /** 접수ID → 최종 일정의 촬영 예정일시. 일정이 없는 접수는 키가 없다. */
-    private Map<String, LocalDateTime> findScheduledAt(List<String> receptionIds) {
-        return imageScheduleRepository
-                .findByImageReception_ImageReceptionIdInAndLatestYn(receptionIds, YES).stream()
+    /**
+     * 접수ID → 가장 이른 촬영 예정일시. 일정이 없는 접수는 키가 없다.
+     *
+     * ⚠ toMap 에 병합 함수를 반드시 준다. 접수 하나가 항목 수만큼 여러 행으로 나오므로
+     *   병합 함수가 없으면 IllegalStateException(Duplicate key)이 난다.
+     */
+    private Map<String, LocalDateTime> findEarliestScheduledAt(List<ImageScheduleEntity> schedules) {
+        return schedules.stream()
                 .collect(Collectors.toMap(
                         schedule -> schedule.getImageReception().getImageReceptionId(),
-                        ImageScheduleEntity::getScheduledAt));
+                        ImageScheduleEntity::getScheduledAt,
+                        (earlier, later) -> earlier.isBefore(later) ? earlier : later));
     }
 
     private ImageWorklistItemDto toItem(ImageReceptionEntity reception,
                                         LocalDateTime scheduledAt,
+                                        int imageItemCount,
+                                        int scheduledItemCount,
                                         boolean hasConsent) {
 
-        ImageWorklistStep nextStep = decideNextStep(scheduledAt, hasConsent);
+        ImageWorklistStep nextStep =
+                decideNextStep(imageItemCount, scheduledItemCount, hasConsent);
 
         return imageWorklistMapper.toWorklistItem(
                 reception,
                 scheduledAt,
+                imageItemCount,
+                scheduledItemCount,
                 hasConsent ? YES : NO,
                 IMAGE_FILE_COUNT_NOT_IMPLEMENTED,
                 nextStep);
@@ -144,8 +180,14 @@ public class ImageWorklistService {
      * TODO(ZP2-21 촬영 등록): 영상파일이 있으면 READING 을 반환하도록 조건을 추가한다.
      * TODO(ZP2-23 판독): 판독이 끝난 건을 목록에서 어떻게 뺄지 정해지면 그 조건도 여기 둔다.
      */
-    private ImageWorklistStep decideNextStep(LocalDateTime scheduledAt, boolean hasConsent) {
-        if (scheduledAt == null) {
+    private ImageWorklistStep decideNextStep(int imageItemCount,
+                                             int scheduledItemCount,
+                                             boolean hasConsent) {
+        /*
+         * ⚠ "일정이 하나라도 있는가"가 아니라 "항목 전부에 일정이 있는가"로 본다. (2026-09-03)
+         *   CT 만 잡고 MRI·초음파를 안 잡았는데 다음 단계로 넘기면, 안 잡힌 촬영이 그대로 묻힌다.
+         */
+        if (scheduledItemCount < imageItemCount) {
             return ImageWorklistStep.SCHEDULE;
         }
         if (!hasConsent) {

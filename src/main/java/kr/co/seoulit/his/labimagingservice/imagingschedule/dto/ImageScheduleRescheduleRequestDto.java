@@ -19,6 +19,20 @@ import java.time.LocalDateTime;
 @Schema(description = "영상 촬영 일정 등록 요청")
 public class ImageScheduleRescheduleRequestDto {
 
+    /**
+     * 재조정할 촬영항목. (2026-09-03 — 일정이 접수 단위에서 항목 단위로 바뀜)
+     *
+     * ⚠ 대상 접수는 경로변수로 받지만 항목은 본문으로 받는다.
+     *   경로에 둘 다 넣으면 /{receptionId}/items/{itemId}/reschedule 이 되는데,
+     *   실제로 지목하는 대상은 "그 항목의 최종 일정" 하나라 경로가 길어지기만 한다.
+     */
+    @NotBlank
+    @Size(max = 36)
+    @Schema(description = "재조정할 촬영항목ID (IMAGE_ORDER_ITEM)",
+            example = "9c8b7a6f-1234-4e5f-9a0b-1c2d3e4f5a6b",
+            requiredMode = Schema.RequiredMode.REQUIRED)
+    private String imageOrderItemId;
+
     @NotNull
     @Schema(description = "재조정된 촬영 예정일시", example = "2026-07-25T09:30:00")
     private LocalDateTime scheduledAt;

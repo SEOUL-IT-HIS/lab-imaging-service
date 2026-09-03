@@ -75,6 +75,23 @@ public class LabWorklistItemDto {
     @Schema(description = "재채취 요청이 있는지 (Y/N)", example = "N")
     private String recollectionRequestedYn;
 
+    /**
+     * ⚠ 결과도 검체처럼 개수로 내려준다. 검사항목이 오더 1건에 여러 개 달리고(1:N),
+     *   결과는 항목마다 1건이라 "2건 중 1건 등록" 같은 중간 상태가 실제로 생긴다.
+     *   Y/N 으로는 그 상태를 표현할 수 없다. (specimenCount/judgedCount 와 같은 이유)
+     *
+     * ⚠ 등록과 확정을 따로 센다. 결과는 등록(01) 후 확정(02) 두 단계라,
+     *   전부 등록됐지만 아직 확정 전인 상태를 등록 수만으로는 구분할 수 없다.
+     */
+    @Schema(description = "검사항목 수", example = "2")
+    private int labItemCount;
+
+    @Schema(description = "결과가 등록된 검사항목 수", example = "1")
+    private int resultCount;
+
+    @Schema(description = "확정까지 끝난 결과 수", example = "0")
+    private int confirmedResultCount;
+
     @Schema(description = "다음에 해야 할 일 — 서버가 계산한다", example = "ACCEPTANCE")
     private WorklistStep nextStep;
 

@@ -128,6 +128,48 @@ public class ImageOrderService {
                         ImageScheduleEntity::getScheduledAt));
     }
 
+    /**
+     * 접수를 워크리스트에서 제외한다. (삭제가 아니라 복구 가능한 상태 변경)
+     * ⚠ 사유는 필수다. 목록에서 사라진 건을 나중에 설명할 근거가 이 기록뿐이다.
+     *   (검사 LabOrderService.excludeReception 과 같은 규칙)
+     */
+    @Transactional
+    public void excludeReception(String receptionNo, String exclusionReason) {
+        ImageReceptionEntity reception = findReceptionEntityByNo(receptionNo);
+
+        reception.exclude(exclusionReason, LocalDateTime.now());
+    }
+
+    /**
+     * 제외된 접수를 워크리스트로 되돌린다.
+     *
+     * ⚠ EXCLUDED 상태만 복구할 수 있다.
+     *   앞으로 판독 완료로 목록에서 빠지는 경로가 생기면, 그건 업무가 끝나서 빠진 것이라
+     *   되돌릴 대상이 아니다. 여기서 상태를 확인하지 않으면 완료된 접수까지 되살아난다.
+     */
+    @Transactional
+    public void restoreReception(String receptionNo) {
+        ImageReceptionEntity reception = findReceptionEntityByNo(receptionNo);
+
+        if (!ReceptionStatus.EXCLUDED.name().equals(reception.getReceptionStatusCode())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB045,
+                    "제외된 접수가 아니어서 복구할 수 없습니다. (receptionNo=" + receptionNo
+                            + ", 상태=" + reception.getReceptionStatusCode() + ")"
+            );
+        }
+
+        reception.restore();
+    }
+
+    /** 접수번호로 접수를 찾는다. 없으면 LAB015. (제외/복구가 같은 조회를 쓴다) */
+    private ImageReceptionEntity findReceptionEntityByNo(String receptionNo) {
+        return imageReceptionRepository.findByReceptionNo(receptionNo)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB015,
+                        "영상 접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
+    }
+
     @Transactional
     public ImageOrderSummaryDto createOrder(ImageOrderCreateRequestDto request) {
 

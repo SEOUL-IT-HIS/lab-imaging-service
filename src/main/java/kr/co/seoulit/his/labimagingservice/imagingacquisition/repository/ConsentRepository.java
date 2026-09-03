@@ -37,6 +37,26 @@ public interface ConsentRepository extends JpaRepository<ConsentEntity, String> 
     List<ConsentEntity> findByImageOrderIdWithOrder(@Param("imageOrderId") String imageOrderId);
 
     /**
+     * 여러 오더의 "철회되지 않은" 동의를 한 번에 조회한다. (워크리스트 진행상태 조립용)
+     *
+     * ⚠ 오더마다 조회하면 행 수만큼 쿼리가 나간다(N+1). 오더ID 를 통째로 넘겨 IN 절 한 번으로 끝낸다.
+     *
+     * ⚠ 철회된 건은 제외한다. 위 findByImageOrderIdWithOrder 와 다른 점이다.
+     *   그쪽은 이력 화면용이라 철회분까지 보여줘야 하지만, 워크리스트는 "지금 유효한 동의가 있는가"만
+     *   판단하면 된다.
+     *
+     * ⚠ 엔티티가 아니라 오더ID 만 뽑는다. 동의 본문은 워크리스트에서 쓰지 않고,
+     *   엔티티로 받으면 imageOrder 지연로딩까지 따라붙는다.
+     */
+    @Query("""
+            select distinct o.imageOrderId from ConsentEntity c
+            join c.imageOrder o
+            where o.imageOrderId in :imageOrderIds
+              and c.withdrawnYn = 'N'
+            """)
+    List<String> findOrderIdsWithValidConsent(@Param("imageOrderIds") List<String> imageOrderIds);
+
+    /**
      * 같은 오더에 같은 유형의 "철회되지 않은" 동의가 이미 있는지 확인한다. (중복 등록 차단)
      *
      * ⚠ DB에 UNIQUE 제약이 없다. 오더 1건에 재동의 이력이 여러 건 쌓이는 것이 정상이라

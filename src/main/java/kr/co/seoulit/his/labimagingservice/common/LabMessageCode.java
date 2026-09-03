@@ -61,6 +61,12 @@ public final class LabMessageCode {
     // ---- 연계 수신 (Kafka/REST) ----
     public static final String LAB032 = "LAB032"; // 연계 수신 이력 조회에 성공했습니다.
 
+    // ---- 영상 워크리스트 / 접수 제외·복구 ----
+    public static final String LAB042 = "LAB042"; // 영상 워크리스트 조회에 성공했습니다.
+    public static final String LAB043 = "LAB043"; // 영상 접수가 워크리스트에서 제외되었습니다.
+    public static final String LAB044 = "LAB044"; // 영상 접수가 워크리스트로 복구되었습니다.
+    public static final String LAB045 = "LAB045"; // 복구할 수 없는 접수입니다. (제외 상태가 아님)
+
     // ---- 일반검사 결과 등록/확정 (UC-RST-01) ----
     public static final String LAB033 = "LAB033"; // 검사 결과가 등록되었습니다.
     public static final String LAB034 = "LAB034"; // 검사 결과 조회에 성공했습니다. (목록/단건 공용)

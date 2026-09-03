@@ -3,6 +3,8 @@ package kr.co.seoulit.his.labimagingservice.labresult.repository;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -19,4 +21,13 @@ public interface LabResultRepository extends JpaRepository<LabResultEntity, Stri
 
     /** 중복 등록 차단용. 검사항목 1건에 결과 1건이다. */
     boolean existsByLabOrderItem_LabOrderItemId(String labOrderItemId);
+
+    /**
+     * 여러 검사항목의 결과를 한 번에 조회한다. (결과 등록 화면의 항목 목록 조립용)
+     *
+     * ⚠ 항목마다 결과를 조회하면 항목 수만큼 쿼리가 나간다(N+1).
+     *   항목ID를 통째로 넘겨 IN 절 한 번으로 끝낸다.
+     *   (SpecimenAcceptanceRepository.findBySpecimen_SpecimenIdIn 과 같은 용도)
+     */
+    List<LabResultEntity> findByLabOrderItem_LabOrderItemIdIn(Collection<String> labOrderItemIds);
 }

@@ -6,6 +6,7 @@ import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessEx
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultItemDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultUpdateRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
@@ -17,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 일반검사 결과 서비스
@@ -187,6 +191,49 @@ public class LabResultService {
     @Transactional(readOnly = true)
     public LabResultSummaryDto getLabResultById(String labResultId) {
         return labResultMapper.toResponse(findResultOrThrow(labResultId));
+    }
+
+    /**
+     * 접수 1건의 검사항목 목록을 결과와 함께 조회한다. (결과 등록 화면용, ZP2-104)
+     *
+     * ⚠ 결과가 없는 항목도 빠뜨리지 않고 담는다. 등록 대상이 바로 그 항목들이다.
+     *   결과 테이블에서 시작해 조회하면 아직 등록되지 않은 항목이 목록에서 사라진다.
+     *   그래서 검사항목을 기준으로 뽑고, 결과를 붙이는 방향으로 조립한다.
+     *
+     * ⚠ 결과는 항목ID 목록으로 한 번에 조회해 메모리에서 붙인다.
+     *   항목마다 결과를 조회하면 항목 수만큼 쿼리가 나간다(N+1).
+     *   (LabWorklistService 의 IN 절 조립, SpecimenService.findFitnessStatus 와 같은 방식)
+     */
+    @Transactional(readOnly = true)
+    public List<LabResultItemDto> getResultItemsByReceptionNo(String receptionNo) {
+
+        List<LabOrderItemEntity> items = labOrderItemRepository.findByReceptionNo(receptionNo);
+        if (items.isEmpty()) {
+            // 접수는 있는데 항목이 없는 경우다. 빈 목록이 정상이므로 예외를 던지지 않는다.
+            return List.of();
+        }
+
+        List<String> itemIds = items.stream()
+                .map(LabOrderItemEntity::getLabOrderItemId)
+                .toList();
+
+        Map<String, LabResultEntity> resultByItemId = labResultRepository
+                .findByLabOrderItem_LabOrderItemIdIn(itemIds).stream()
+                .collect(Collectors.toMap(
+                        result -> result.getLabOrderItem().getLabOrderItemId(),
+                        result -> result));
+
+        return items.stream()
+                .map(item -> {
+                    LabResultEntity result = resultByItemId.get(item.getLabOrderItemId());
+                    return LabResultItemDto.builder()
+                            .labOrderItemId(item.getLabOrderItemId())
+                            .labItemCode(item.getLabItemCode())
+                            // 결과가 없는 항목은 null 로 둔다. 화면이 "미등록"으로 읽는다.
+                            .result(result == null ? null : labResultMapper.toResponse(result))
+                            .build();
+                })
+                .toList();
     }
 
     /**

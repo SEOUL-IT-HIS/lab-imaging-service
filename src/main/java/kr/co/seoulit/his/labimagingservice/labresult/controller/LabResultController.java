@@ -7,6 +7,7 @@ import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultConfirmRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultItemDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultUpdateRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.service.LabResultService;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 일반검사 결과 API
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
  *   POST   /api/lab-imaging/lab-results/{labResultId}/confirm  결과 확정 (ZP2-101)
  *   GET    /api/lab-imaging/lab-results/{labResultId}          단건 조회
  *   GET    /api/lab-imaging/lab-results?labOrderItemId=        검사항목으로 조회
+ *   GET    /api/lab-imaging/lab-results/receptions/{receptionNo}  접수의 검사항목+결과 목록 (ZP2-104)
  *
  * ⚠ 확정은 PUT 이 아니라 POST /{id}/confirm 이다.
  *   PUT 은 "이 값으로 바꿔라"이고, 확정은 값 교체가 아니라 상태를 한 방향으로 넘기는 행위다.
@@ -86,6 +90,28 @@ public class LabResultController {
 
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB039, "검사 결과가 확정되었습니다.")
+        );
+    }
+
+    /**
+     * ⚠ 결과가 아니라 "검사항목"을 기준으로 뽑는다.
+     *   결과 테이블에서 시작하면 아직 등록 안 된 항목이 목록에서 빠지는데,
+     *   등록 화면이 필요로 하는 건 바로 그 미등록 항목이다.
+     *
+     * ⚠ /{labResultId} 보다 위에 둔다. receptions 가 결과ID 로 잡히지는 않지만
+     *   (고정 세그먼트가 있어 Spring 이 구체적인 쪽을 먼저 고른다) 읽는 사람이 멈추지 않게 한다.
+     */
+    @Operation(summary = "접수의 검사항목 + 결과 목록 조회",
+            description = "접수번호로 그 접수의 검사항목을 모두 조회하고, 각 항목에 등록된 결과를 함께 담는다. "
+                    + "아직 결과가 없는 항목은 result 가 null 이다. 결과 등록 화면이 쓴다.")
+    @GetMapping("/receptions/{receptionNo}")
+    public ResponseEntity<ApiResponse<List<LabResultItemDto>>> getResultItemsByReceptionNo(
+            @PathVariable String receptionNo) {
+
+        List<LabResultItemDto> response = labResultService.getResultItemsByReceptionNo(receptionNo);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB034, "검사 결과 조회에 성공했습니다.")
         );
     }
 

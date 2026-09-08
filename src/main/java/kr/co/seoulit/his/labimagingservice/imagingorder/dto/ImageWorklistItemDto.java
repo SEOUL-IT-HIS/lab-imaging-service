@@ -97,12 +97,12 @@ public class ImageWorklistItemDto {
     private String consentYn;
 
     /**
-     * ⚠ 항상 0 이다. 촬영(영상파일) 등록 기능이 아직 없다. (ZP2-21)
-     *   그래도 필드를 미리 두는 이유는, 화면이 "촬영 단계가 존재한다"를 표시해야 하기 때문이다.
-     *   IMAGE_FILE 테이블은 있으나 엔티티를 만들지 않았다 — 등록 기능이 없어 세어봐야 0 이라
-     *   지금 만들면 쓰이지 않는 코드만 남는다.
+     * ⚠ 접수 하나가 아니라 그 접수의 오더에 속한 "모든 촬영항목"의 파일 수를 더한 값이다.
+     *   (ZP2-21 이전에는 등록 기능이 없어 항상 0 이었다 — 그 흔적이 ImageWorklistService 주석에 있다)
+     *   촬영항목 수·동의처럼 개수로 두는 이유도 같다: 항목이 여럿이면 "3건 중 1건만 촬영됨" 같은
+     *   중간 상태가 실제로 생기는데 Y/N 으로는 그 상태를 표현할 수 없다.
      */
-    @Schema(description = "등록된 영상파일 수 (촬영 기능 구현 전까지 항상 0)", example = "0")
+    @Schema(description = "등록된 영상파일 수 (해당 접수의 오더에 속한 촬영항목 전체 합산)", example = "1")
     private int imageFileCount;
 
     @Schema(description = "다음에 해야 할 일 — 서버가 계산한다", example = "CONSENT")

@@ -1,7 +1,9 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
 import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ConsentRepository;
+import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ImageFileEntity;
+import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ImageFileRepository;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.repository.ConsentRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistStep;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
@@ -36,13 +38,15 @@ import java.util.stream.Collectors;
  *
  * ⚠ left join 한 방으로 가져오지 않는 이유 —
  *   CONSENT 는 오더와 1:N 이라 동의 3건인 오더가 결과에서 3행으로 늘어난다.
- *   (검사에서 SPECIMEN 때문에 피했던 것과 같은 문제)
+ *   (검사에서 SPECIMEN 때문에 피했던 것과 같은 문제. IMAGE_FILE 도 항목과 1:N 이라 마찬가지다)
  *
  * ── 아직 계산하지 않는 단계
- *   촬영(IMAGE_FILE)  : 등록 기능이 없어 항상 0 이다. (ZP2-21)
  *   판독(IMAGE_READING): 테이블은 있으나 엔티티를 만들지 않았다. (ZP2-23, 2026-09-02 결정)
- *   둘 다 세어봐야 값이 고정이라, 지금 엔티티를 만들면 쓰이지 않는 코드만 남는다.
- *   기능이 붙을 때 decideNextStep 에 조건 한 줄씩 추가하면 된다.
+ *   세어봐야 값이 고정(0)이라, 지금 엔티티를 만들면 쓰이지 않는 코드만 남는다.
+ *   기능이 붙을 때 decideNextStep 에 조건 한 줄을 추가하면 된다.
+ *
+ *   촬영(IMAGE_FILE)은 ZP2-21 로 이 계산이 실제로 붙었다 — 쿼리가 4번(접수+일정+동의+영상파일)이
+ *   된 것이 그 흔적이다.
  */
 @Service
 @RequiredArgsConstructor
@@ -51,13 +55,11 @@ public class ImageWorklistService {
     private static final String YES = "Y";
     private static final String NO = "N";
 
-    /** 촬영 등록 기능이 생기기 전까지 고정값. (위 클래스 주석 참고) */
-    private static final int IMAGE_FILE_COUNT_NOT_IMPLEMENTED = 0;
-
     private final ImageReceptionRepository imageReceptionRepository;
     private final ImageScheduleRepository imageScheduleRepository;
     private final ConsentRepository consentRepository;
     private final ImageOrderItemRepository imageOrderItemRepository;
+    private final ImageFileRepository imageFileRepository;
     private final ImageWorklistMapper imageWorklistMapper;
 
     /**
@@ -100,14 +102,44 @@ public class ImageWorklistService {
                         schedule -> schedule.getImageReception().getImageReceptionId(),
                         Collectors.counting()));
 
-        Map<String, Long> itemCountByOrderId = imageOrderItemRepository
-                .findByImageOrder_ImageOrderIdIn(orderIds).stream()
+        List<ImageOrderItemEntity> orderItems = imageOrderItemRepository.findByImageOrder_ImageOrderIdIn(orderIds);
+
+        Map<String, Long> itemCountByOrderId = orderItems.stream()
                 .collect(Collectors.groupingBy(
                         item -> item.getImageOrder().getImageOrderId(),
                         Collectors.counting()));
 
         Set<String> orderIdsWithConsent = Set.copyOf(
                 consentRepository.findOrderIdsWithValidConsent(orderIds));
+
+        /*
+         * ⚠ 영상파일(IMAGE_FILE)은 접수가 아니라 촬영항목에 붙는다. 워크리스트 행은 접수
+         *   단위라, 접수의 오더에 속한 모든 항목의 파일 수를 더해야 한다(itemCountByOrderId 와
+         *   같은 2단 집계 — 항목별로 센 뒤 오더로 다시 묶는다).
+         *
+         * ⚠ 항목→오더 매핑은 위에서 이미 join fetch 로 받아 둔 orderItems 에서 만든다.
+         *   ImageFileEntity 쪽에서 file.getImageOrderItem().getImageOrder() 로 한 번 더
+         *   거슬러 올라가지 않는다 — ImageFileRepository 의 join fetch 는 imageOrderItem 까지만
+         *   커버해서, 그 뒤(orderItem.imageOrder)는 여전히 지연로딩 대상이다. 이미 확보한
+         *   orderItems 로 매핑을 만들면 그 지연로딩 자체를 건드릴 일이 없다.
+         */
+        Map<String, String> orderIdByItemId = orderItems.stream()
+                .collect(Collectors.toMap(
+                        ImageOrderItemEntity::getImageOrderItemId,
+                        item -> item.getImageOrder().getImageOrderId()));
+
+        List<String> orderItemIds = List.copyOf(orderIdByItemId.keySet());
+
+        Map<String, Long> fileCountByItemId = imageFileRepository
+                .findByImageOrderItem_ImageOrderItemIdIn(orderItemIds).stream()
+                .collect(Collectors.groupingBy(
+                        file -> file.getImageOrderItem().getImageOrderItemId(),
+                        Collectors.counting()));
+
+        Map<String, Long> fileCountByOrderId = fileCountByItemId.entrySet().stream()
+                .collect(Collectors.groupingBy(
+                        entry -> orderIdByItemId.get(entry.getKey()),
+                        Collectors.summingLong(Map.Entry::getValue)));
 
         return receptions.stream()
                 .map(reception -> toItem(
@@ -117,7 +149,9 @@ public class ImageWorklistService {
                                 .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue(),
                         scheduledItemCountByReceptionId
                                 .getOrDefault(reception.getImageReceptionId(), 0L).intValue(),
-                        orderIdsWithConsent.contains(reception.getImageOrder().getImageOrderId())))
+                        orderIdsWithConsent.contains(reception.getImageOrder().getImageOrderId()),
+                        fileCountByOrderId
+                                .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue()))
                 .toList();
     }
 
@@ -148,10 +182,11 @@ public class ImageWorklistService {
                                         LocalDateTime scheduledAt,
                                         int imageItemCount,
                                         int scheduledItemCount,
-                                        boolean hasConsent) {
+                                        boolean hasConsent,
+                                        int imageFileCount) {
 
         ImageWorklistStep nextStep =
-                decideNextStep(imageItemCount, scheduledItemCount, hasConsent);
+                decideNextStep(imageItemCount, scheduledItemCount, hasConsent, imageFileCount);
 
         return imageWorklistMapper.toWorklistItem(
                 reception,
@@ -159,7 +194,7 @@ public class ImageWorklistService {
                 imageItemCount,
                 scheduledItemCount,
                 hasConsent ? YES : NO,
-                IMAGE_FILE_COUNT_NOT_IMPLEMENTED,
+                imageFileCount,
                 nextStep);
     }
 
@@ -173,16 +208,22 @@ public class ImageWorklistService {
      *   동의서에는 촬영 예정일이 들어가고, 일정이 정해져야 환자에게 언제 오라고 안내하면서
      *   동의를 받는다. 실제 업무 순서가 그렇다.
      *
-     * ⚠ ACQUISITION 에서 멈춘다. 촬영 등록 기능이 없어 그 다음을 판단할 근거가 없다.
-     *   그래도 값을 내려주는 이유는, 동의까지 끝낸 건이 목록에 계속 남는 이유를
+     * ⚠ READING 에서 멈춘다. 판독 기능이 없어 그 다음(판독 완료 후 목록에서 빼는 것)을 판단할
+     *   근거가 없다. 그래도 값을 내려주는 이유는, 촬영까지 끝낸 건이 목록에 계속 남는 이유를
      *   담당자가 알 수 있어야 하기 때문이다. (검사 쪽 RESULT 와 같은 취급)
      *
-     * TODO(ZP2-21 촬영 등록): 영상파일이 있으면 READING 을 반환하도록 조건을 추가한다.
-     * TODO(ZP2-23 판독): 판독이 끝난 건을 목록에서 어떻게 뺄지 정해지면 그 조건도 여기 둔다.
+     * ⚠ "영상파일이 하나라도 있으면 READING" 이다. 검체 적합성 판정처럼 항목별로 다 채워졌는지
+     *   보지 않는다 — 판독 대상은 "촬영이 끝난 파일"이지 "오더의 모든 촬영항목"이 아니다.
+     *   항목이 여럿이라도 그중 하나라도 촬영이 끝나면 그 파일부터 판독을 시작할 수 있다.
+     *   (일정처럼 항목 전부를 요구하면, 항목 하나가 재촬영으로 지연될 때 이미 촬영된 나머지
+     *   항목의 판독까지 같이 묶여 미뤄진다 — 검사 쪽과 업무 성격이 다른 지점이다)
+     *
+     * TODO(ZP2-23 판독): 판독이 끝난 건을 목록에서 어떻게 뺄지 정해지면 그 조건을 여기 추가한다.
      */
     private ImageWorklistStep decideNextStep(int imageItemCount,
                                              int scheduledItemCount,
-                                             boolean hasConsent) {
+                                             boolean hasConsent,
+                                             int imageFileCount) {
         /*
          * ⚠ "일정이 하나라도 있는가"가 아니라 "항목 전부에 일정이 있는가"로 본다. (2026-09-03)
          *   CT 만 잡고 MRI·초음파를 안 잡았는데 다음 단계로 넘기면, 안 잡힌 촬영이 그대로 묻힌다.
@@ -193,6 +234,9 @@ public class ImageWorklistService {
         if (!hasConsent) {
             return ImageWorklistStep.CONSENT;
         }
-        return ImageWorklistStep.ACQUISITION;
+        if (imageFileCount == 0) {
+            return ImageWorklistStep.ACQUISITION;
+        }
+        return ImageWorklistStep.READING;
     }
 }

@@ -1,13 +1,13 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.service;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ConsentCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ConsentSummaryDto;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ConsentEntity;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.mapper.ConsentMapper;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ConsentRepository;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentSummaryDto;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.entity.ConsentEntity;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.mapper.ConsentMapper;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.repository.ConsentRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderRepository;
 import lombok.RequiredArgsConstructor;

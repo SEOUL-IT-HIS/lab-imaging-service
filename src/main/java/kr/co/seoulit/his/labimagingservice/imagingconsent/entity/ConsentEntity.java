@@ -1,4 +1,4 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.entity;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.entity;
 
 import jakarta.persistence.*;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;

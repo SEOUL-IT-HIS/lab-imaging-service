@@ -1,4 +1,4 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.dto;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

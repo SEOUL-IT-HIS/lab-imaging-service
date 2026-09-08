@@ -1,6 +1,6 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.repository;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.repository;
 
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ConsentEntity;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.entity.ConsentEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -33,11 +33,35 @@ public class RestTemplateConfig {
     /** 응답 대기(읽기) 타임아웃 3초 */
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(3);
 
+    /** SeaweedFS 업로드용 읽기 타임아웃 30초. 대용량 멀티파트 전송을 고려해 공용 값보다 길게 둔다. */
+    private static final Duration SEAWEEDFS_READ_TIMEOUT = Duration.ofSeconds(30);
+
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
                 .connectTimeout(CONNECT_TIMEOUT)
                 .readTimeout(READ_TIMEOUT)
+                .build();
+    }
+
+    /**
+     * SeaweedFS Filer 전용 RestTemplate. (ZP2-21 촬영/영상판독대기등록)
+     *
+     * ⚠ 위 공용 Bean 을 재사용하지 않고 따로 둔 이유 — 클래스 주석에 적어 둔
+     *   "타임아웃 정책이 달라지면 분리한다"는 그 경우다.
+     *   patient/admin 호출은 짧은 JSON 요청/응답이라 3초로 충분하지만, 영상파일 업로드는
+     *   수십 MB 짜리 멀티파트 전송이라 읽기(응답 대기) 타임아웃을 3초로 두면
+     *   정상 업로드 중에도 SocketTimeoutException 이 난다.
+     *
+     * ⚠ 연결(connect) 타임아웃은 공용 Bean과 같은 3초를 그대로 둔다.
+     *   "서버가 살아있는지"는 파일 크기와 무관하게 빨리 판단되어야 한다 —
+     *   느려야 하는 건 응답을 기다리는 시간(대용량 전송)이지, 연결 자체가 아니다.
+     */
+    @Bean
+    public RestTemplate seaweedFsRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .connectTimeout(CONNECT_TIMEOUT)
+                .readTimeout(SEAWEEDFS_READ_TIMEOUT)
                 .build();
     }
 }

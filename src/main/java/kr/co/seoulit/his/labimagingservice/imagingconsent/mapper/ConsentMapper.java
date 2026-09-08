@@ -1,7 +1,7 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.mapper;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.mapper;
 
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ConsentSummaryDto;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ConsentEntity;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentSummaryDto;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.entity.ConsentEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

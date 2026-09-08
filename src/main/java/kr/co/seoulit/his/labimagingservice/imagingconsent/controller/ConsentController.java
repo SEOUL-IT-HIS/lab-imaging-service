@@ -1,13 +1,13 @@
-package kr.co.seoulit.his.labimagingservice.imagingacquisition.controller;
+package kr.co.seoulit.his.labimagingservice.imagingconsent.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ConsentCreateRequestDto;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ConsentSummaryDto;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.service.ConsentService;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentSummaryDto;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.service.ConsentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

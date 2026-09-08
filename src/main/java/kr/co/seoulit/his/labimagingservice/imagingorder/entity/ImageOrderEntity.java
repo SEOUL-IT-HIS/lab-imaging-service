@@ -1,7 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.entity;
 
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
-import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ConsentEntity;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.entity.ConsentEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

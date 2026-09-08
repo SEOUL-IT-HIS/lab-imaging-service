@@ -69,6 +69,17 @@ public final class LabMessageCode {
     public static final String LAB046 = "LAB046"; // 이미 등록된 영상 일정이 있습니다. (재등록 대상)
     public static final String LAB047 = "LAB047"; // 이 접수의 촬영항목이 아닙니다.
 
+    // ---- 촬영/영상판독대기등록 (UC-IMG-03) ----
+    public static final String LAB048 = "LAB048"; // 영상파일이 등록되었습니다.
+    public static final String LAB049 = "LAB049"; // 영상파일 조회에 성공했습니다. (목록/단건 공용)
+    public static final String LAB050 = "LAB050"; // 등록된 영상파일을 찾을 수 없습니다.
+    public static final String LAB051 = "LAB051"; // 환자 정보가 일치하지 않습니다.
+    public static final String LAB052 = "LAB052"; // 동의가 등록되지 않았습니다. 촬영 전 동의를 먼저 등록하세요.
+    public static final String LAB053 = "LAB053"; // 촬영 일정이 등록되지 않았습니다. 일정을 먼저 등록하세요.
+    public static final String LAB054 = "LAB054"; // 허용되지 않는 파일 형식입니다.
+    public static final String LAB055 = "LAB055"; // 영상 저장소 연결에 실패했습니다. 잠시 후 다시 시도하세요.
+    public static final String LAB056 = "LAB056"; // 영상파일 저장에 실패해 업로드가 취소되었습니다.
+
     // ---- 일반검사 결과 등록/확정 (UC-RST-01) ----
     public static final String LAB033 = "LAB033"; // 검사 결과가 등록되었습니다.
     public static final String LAB034 = "LAB034"; // 검사 결과 조회에 성공했습니다. (목록/단건 공용)

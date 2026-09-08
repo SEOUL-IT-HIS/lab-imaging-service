@@ -5,6 +5,7 @@ import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -44,6 +45,30 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
+        String detail = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(LabMessageCode.LAB998,
+                        "필수 항목이 누락되었거나 형식이 올바르지 않습니다. (" + detail + ")"));
+    }
+
+    /**
+     * @ModelAttribute + @Valid 검증 실패 중 순수 BindException 만 여기로 온다.
+     *
+     * ⚠ 실제로는 이 핸들러가 거의 호출되지 않는다. Spring 6 부터
+     *   MethodArgumentNotValidException 이 BindException 을 상속하도록 바뀌어서,
+     *   @ModelAttribute(폼/멀티파트) + @Valid 실패도 실제로는 MethodArgumentNotValidException 으로
+     *   던져지고, 위 handleValidation 이 더 구체적인 타입이라 먼저 매칭돼 그쪽이 처리한다.
+     *   (이 프로젝트 최초의 멀티파트 업로드인 ImageFileUploadRequestDto 로 직접 확인함 —
+     *    로그에 실제로 MethodArgumentNotValidException 이 찍혔다)
+     *   그래도 이 핸들러를 남겨 두는 이유는, MethodArgumentNotValidException 이 아닌 다른 경로로
+     *   순수 BindException 이 나는 경우(예: 타입 변환 실패 등)의 방어용이다. 없으면 그런 경우
+     *   handleUnknown 이 잡아 "필드명: 사유" 상세 없이 LAB999(500)만 나간다.
+     */
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBind(BindException e) {
         String detail = e.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));

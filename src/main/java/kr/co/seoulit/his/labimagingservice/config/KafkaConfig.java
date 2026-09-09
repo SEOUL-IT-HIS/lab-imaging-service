@@ -56,6 +56,9 @@ public class KafkaConfig {
     @Value("${app.kafka.topic.lab-order-resulted}")
     private String resultedTopic;
 
+    @Value("${app.kafka.topic.billing-charge}")
+    private String billingChargeTopic;
+
     /**
      * 우리가 구독하는 토픽.
      *
@@ -74,6 +77,18 @@ public class KafkaConfig {
     @Bean
     public NewTopic labOrderResultedTopic() {
         return TopicBuilder.name(resultedTopic).partitions(1).replicas(1).build();
+    }
+
+    /**
+     * 검사결과 확정 → 수납 청구 이벤트 토픽. (LAB → 수납)
+     *
+     * ⚠ 위 두 토픽과 같은 이유로 브로커 auto-create 에 맡기지 않고 여기서 미리 만든다.
+     *   수납 쪽 Consumer 가 우리보다 먼저 뜨든 나중에 뜨든, 토픽이 없어서 나는
+     *   "UNKNOWN_TOPIC_OR_PARTITION" 경고와 무관하게 조용히 뜬다.
+     */
+    @Bean
+    public NewTopic examBillingChargeTopic() {
+        return TopicBuilder.name(billingChargeTopic).partitions(1).replicas(1).build();
     }
 
     /**

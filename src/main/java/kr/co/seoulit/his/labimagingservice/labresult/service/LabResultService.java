@@ -1,10 +1,17 @@
 package kr.co.seoulit.his.labimagingservice.labresult.service;
 
+import kr.co.seoulit.his.labimagingservice.billing.messaging.BillingChargeProducer;
+import kr.co.seoulit.his.labimagingservice.billing.messaging.dto.BillingChargeRequestData;
+import kr.co.seoulit.his.labimagingservice.billing.service.FeeCodeResolver;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
+import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultItemDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultSummaryDto;
@@ -13,6 +20,8 @@ import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.mapper.LabResultMapper;
 import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +57,7 @@ import java.util.stream.Collectors;
  *   ⚠ 이 해석이 틀렸다면(확정 후에도 정정이 필요하고 그 이력을 남겨야 한다면) 스키마부터 바뀌어야 한다.
  *     그건 이번 범위가 아니라 임의로 테이블을 만들지 않았다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LabResultService {
@@ -59,13 +70,34 @@ public class LabResultService {
     /** 결과상태: 확정(더 이상 수정 불가) */
     private static final String STATUS_CONFIRMED = "02";
 
+    /** 청구 이벤트 수량. 검사 1건 = 청구 1건으로 고정한다. (BillingChargeRequestData 참고) */
+    private static final String BILLING_QUANTITY = "1";
+
     private static final String YES = "Y";
     private static final String NO = "N";
 
     private final LabResultRepository labResultRepository;
     private final LabOrderItemRepository labOrderItemRepository;
+    private final LabReceptionRepository labReceptionRepository;
     private final LabResultMapper labResultMapper;
     private final CommonCodeCache commonCodeCache;
+    private final FeeCodeResolver feeCodeResolver;
+
+    /**
+     * ⚠ Optional 로 받는다. BillingChargeProducer 는 다른 Kafka 빈들과 같이
+     *   @ConditionalOnProperty(app.kafka.enabled=true) 로 감싸여 있어, false 로 끄면
+     *   빈 자체가 없다. 여기를 그냥 BillingChargeProducer 타입으로 선언하면
+     *   app.kafka.enabled=false 일 때 이 서비스를 만들 수 없어 앱 기동이 막힌다.
+     *   (검증 방법에 명시된 "app.kafka.enabled=false 로도 정상 기동" 요건)
+     */
+    private final Optional<BillingChargeProducer> billingChargeProducer;
+
+    /**
+     * 발생서비스코드. 확정값이다 — admin SYSTEM_SOURCE_CD 그룹의 "05=검사시스템".
+     * (application.properties 의 app.billing.source-service-code 참고. 2026-09-09 확정)
+     */
+    @Value("${app.billing.source-service-code}")
+    private String billingSourceServiceCode;
 
     // ------------------------------------------------------------------
     // ZP2-100 수기 입력 등록
@@ -181,7 +213,92 @@ public class LabResultService {
         validateCode(RESULT_STATUS_CD, STATUS_CONFIRMED, "결과상태코드");
 
         labResult.confirm(STATUS_CONFIRMED, confirmedById, LocalDateTime.now());
+
+        // 확정 성공 직후, 같은 트랜잭션 커밋 전에 청구 이벤트를 발행한다. (수납 연동)
+        publishBillingCharge(labResult);
+
         return labResultMapper.toResponse(labResult);
+    }
+
+    // ------------------------------------------------------------------
+    // 청구 연동 — 검사결과 확정 시 수납으로 청구 이벤트 발행
+    // ------------------------------------------------------------------
+
+    /**
+     * 청구 이벤트를 만들어 발행한다. (BillingChargeProducer, 토픽 exam-billing-charge)
+     *
+     * ⚠ 이 메서드는 절대 예외를 던지지 않는다. 청구 발행은 결과 확정의 부수 효과일 뿐이라,
+     *   여기서 무엇이 실패하든(수가코드 매핑 누락, 접수 조회 실패, Kafka 발행 실패 등)
+     *   confirmLabResult 의 확정 자체는 그대로 성공해야 한다. 그래서 메서드 전체를
+     *   하나의 try-catch 로 감싼다 — Outbox 패턴을 쓰지 않기로 한 것과 같은 결정이다.
+     *   (BillingChargeProducer 클래스 주석 참고)
+     *
+     * ⚠ itemName 은 labItemCode 값을 그대로 쓴다. admin 이 관리하는 표시명(codeName)을
+     *   가져와 채우고 싶었지만, CommonCodeItemResponse/CommonCodeCache 가 codeName 을
+     *   아예 매핑하지 않는다 — "이 서비스는 타 서비스 소유 표시명을 저장하지 않는다"는
+     *   기존 방침(개발표준가이드 14.1, CommonCodeItemResponse 주석 참고) 때문이다.
+     *   그 방침을 이번 작업에서 깨지 않기로 하고, 참고용 필드이니 코드값을 그대로 보낸다.
+     *   실제 표시명이 필요하면 수납 쪽에서 자신의 admin 조회로 채우는 편이 맞다.
+     */
+    private void publishBillingCharge(LabResultEntity labResult) {
+        if (billingChargeProducer.isEmpty()) {
+            // app.kafka.enabled=false — 청구 발행 자체를 시도하지 않는다.
+            return;
+        }
+
+        try {
+            LabOrderItemEntity labOrderItem = labResult.getLabOrderItem();
+            LabOrderEntity labOrder = labOrderItem.getLabOrder();
+
+            String receptionId = findAcceptedReceptionId(labOrder);
+            String feeCode = feeCodeResolver.resolve(labOrderItem.getLabItemCode());
+
+            BillingChargeRequestData data = BillingChargeRequestData.builder()
+                    .patientId(labOrder.getPatientId())
+                    .receptionId(receptionId)
+                    .admissionId(null)
+                    .sourceServiceCode(billingSourceServiceCode)
+                    .sourceRecordId(labOrderItem.getLabOrderItemId())
+                    .feeCode(feeCode)
+                    .itemName(labOrderItem.getLabItemCode())
+                    .quantity(BILLING_QUANTITY)
+                    .amount(null)
+                    .build();
+
+            billingChargeProducer.get().publish(data);
+
+        } catch (Exception e) {
+            // FeeCodeResolver.resolve() 의 IllegalStateException(매핑 누락) 등이 여기로 온다.
+            // BillingChargeProducer.publish() 자체는 이미 내부에서 예외를 삼키므로,
+            // 여기서 잡히는 건 그 전 단계(접수 조회/수가코드 조회)의 실패다.
+            log.error("[KAFKA-OUT] 청구 이벤트 준비 실패. labResultId={}", labResult.getLabResultId(), e);
+        }
+    }
+
+    /**
+     * 오더의 "처리 대상(ACCEPTED)" 접수ID 를 찾는다.
+     *
+     * ⚠ LAB_ORDER : LAB_RECEPTION 은 1:N 이라 이론상 여러 건이 나올 수 있다.
+     *   여러 건이면 가장 최근 접수(createdAt desc 첫 번째)를 쓰고 경고 로그를 남긴다.
+     *   이 프로젝트 범위에서 실제로 여러 건이 생기는 경우는 드물다는 전제다 — 그 전제가
+     *   깨지면(재접수 등으로 ACCEPTED 가 실제로 여러 건 쌓이면) 이 메서드부터 다시 봐야 한다.
+     *
+     * @throws IllegalStateException ACCEPTED 상태 접수가 하나도 없는 경우
+     */
+    private String findAcceptedReceptionId(LabOrderEntity labOrder) {
+        List<LabReceptionEntity> receptions = labReceptionRepository
+                .findByLabOrder_LabOrderIdAndReceptionStatusCodeOrderByCreatedAtDesc(
+                        labOrder.getLabOrderId(), ReceptionStatus.ACCEPTED.name());
+
+        if (receptions.isEmpty()) {
+            throw new IllegalStateException(
+                    "ACCEPTED 상태 접수를 찾을 수 없습니다. labOrderId=" + labOrder.getLabOrderId());
+        }
+        if (receptions.size() > 1) {
+            log.warn("한 오더에 ACCEPTED 상태 접수가 {}건 있습니다. 가장 최근 접수를 사용합니다. labOrderId={}",
+                    receptions.size(), labOrder.getLabOrderId());
+        }
+        return receptions.get(0).getLabReceptionId();
     }
 
     // ------------------------------------------------------------------

@@ -49,4 +49,18 @@ public interface LabReceptionRepository extends JpaRepository<LabReceptionEntity
             order by r.createdAt asc
             """)
     List<LabReceptionEntity> findWorklistAll();
+
+    /**
+     * 오더 1건의 "처리 대상(ACCEPTED)" 접수 목록. (청구 이벤트 발행용, LabResultService 참고)
+     *
+     * ⚠ LAB_ORDER : LAB_RECEPTION 은 1:N 이라 이론상 여러 건이 나올 수 있다.
+     *   호출하는 쪽이 결과가 여러 건이면 가장 최근 것(첫 번째)을 쓰고 경고 로그를 남긴다 —
+     *   이 프로젝트 범위에서 실제로 여러 건이 발생하는 경우는 드물다는 전제다.
+     *
+     * ⚠ createdAt desc 로 정렬한다. LabReceptionEntity 에는 "접수일시" 라는 별도 컬럼이 없고
+     *   생성일시(BaseAuditEntity.createdAt)가 그 역할을 한다 — 워크리스트 응답의 receivedAt 도
+     *   이 컬럼을 그대로 쓴다(LabWorklistMapper 참고).
+     */
+    List<LabReceptionEntity> findByLabOrder_LabOrderIdAndReceptionStatusCodeOrderByCreatedAtDesc(
+            String labOrderId, String receptionStatusCode);
 }

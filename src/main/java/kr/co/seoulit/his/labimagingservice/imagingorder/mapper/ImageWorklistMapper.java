@@ -38,6 +38,7 @@ public interface ImageWorklistMapper {
     @Mapping(target = "scheduledItemCount", source = "scheduledItemCount")
     @Mapping(target = "consentYn", source = "consentYn")
     @Mapping(target = "imageFileCount", source = "imageFileCount")
+    @Mapping(target = "readingCompletedCount", source = "readingCompletedCount")
     @Mapping(target = "nextStep", source = "nextStep")
     ImageWorklistItemDto toWorklistItem(ImageReceptionEntity reception,
                                         LocalDateTime scheduledAt,
@@ -45,5 +46,6 @@ public interface ImageWorklistMapper {
                                         int scheduledItemCount,
                                         String consentYn,
                                         int imageFileCount,
+                                        int readingCompletedCount,
                                         ImageWorklistStep nextStep);
 }

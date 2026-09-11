@@ -80,6 +80,17 @@ public final class LabMessageCode {
     public static final String LAB055 = "LAB055"; // 영상 저장소 연결에 실패했습니다. 잠시 후 다시 시도하세요.
     public static final String LAB056 = "LAB056"; // 영상파일 저장에 실패해 업로드가 취소되었습니다.
 
+    // ---- 영상판독처리 (UC-IMG-04, ZP2-23) ----
+    public static final String LAB057 = "LAB057"; // 판독이 배정되었습니다.
+    public static final String LAB058 = "LAB058"; // 판독 워크리스트 조회에 성공했습니다.
+    public static final String LAB059 = "LAB059"; // 판독 소견이 저장되었습니다.
+    public static final String LAB060 = "LAB060"; // 판독이 확정되었습니다.
+    public static final String LAB061 = "LAB061"; // 판독 정보를 찾을 수 없습니다.
+    public static final String LAB062 = "LAB062"; // 이미 확정된 판독입니다. (배정/소견수정/재확정 공용 거절)
+    public static final String LAB063 = "LAB063"; // 소견 없이는 확정할 수 없습니다.
+    public static final String LAB064 = "LAB064"; // 촬영항목 정보를 찾을 수 없습니다.
+    public static final String LAB065 = "LAB065"; // 판독 조회에 성공했습니다. (단건)
+
     // ---- 일반검사 결과 등록/확정 (UC-RST-01) ----
     public static final String LAB033 = "LAB033"; // 검사 결과가 등록되었습니다.
     public static final String LAB034 = "LAB034"; // 검사 결과 조회에 성공했습니다. (목록/단건 공용)

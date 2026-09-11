@@ -105,6 +105,16 @@ public class ImageWorklistItemDto {
     @Schema(description = "등록된 영상파일 수 (해당 접수의 오더에 속한 촬영항목 전체 합산)", example = "1")
     private int imageFileCount;
 
+    /**
+     * ⚠ 판독 완료(ZP2-23) 여부를 "목록에서 빼는 것"이 아니라 진행도 칩으로 표현한다.
+     *   ImageWorklistStep 에는 판독 완료 다음 단계가 없다(READING 에서 계속 머문다) —
+     *   검사 쪽 WorklistStep 이 확정 후에도 RESULT 에 머무는 것과 같은 원칙이다.
+     *   화면은 imageFileCount 중 몇 건이 판독까지 끝났는지를 이 값으로 보여준다.
+     *   (WorklistProgress.tsx 의 "Result n/m" 칩과 같은 패턴)
+     */
+    @Schema(description = "촬영된 항목 중 판독까지 끝난(확정) 항목 수", example = "1")
+    private int readingCompletedCount;
+
     @Schema(description = "다음에 해야 할 일 — 서버가 계산한다", example = "CONSENT")
     private ImageWorklistStep nextStep;
 

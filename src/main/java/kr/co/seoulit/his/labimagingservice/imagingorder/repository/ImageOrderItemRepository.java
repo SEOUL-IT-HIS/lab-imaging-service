@@ -44,4 +44,24 @@ public interface ImageOrderItemRepository extends JpaRepository<ImageOrderItemEn
             order by i.createdAt asc
             """)
     List<ImageOrderItemEntity> findByReceptionNo(String receptionNo);
+
+    /**
+     * 영상파일(IMAGE_FILE)이 1건 이상 등록된 촬영항목 전체. (판독 워크리스트 대상 조회, ZP2-23)
+     *
+     * ⚠ imagingacquisition 패키지(ImageFileEntity)를 조회 조건(exists)으로만 참조한다.
+     *   ImageFileRepository/ImageFileService 는 건드리지 않는다 — ImageReceptionRepository 가
+     *   ImageScheduleEntity 를 exists 서브쿼리로 참조하는 것과 같은, 이 프로젝트에 이미 있는 관례다.
+     *
+     * ⚠ 응급(urgencyYn) 우선 정렬을 쿼리에서 끝낸다. (ZP2-125) 'Y' > 'N' 이라 desc 정렬만으로
+     *   응급 건이 위로 온다 — 별도 판정 로직 없이 문자열 비교로 충분하다.
+     *   응급 여부 안에서는 오래 촬영된 순(먼저 만들어진 항목)으로 둔다.
+     */
+    @Query("""
+            select i from ImageOrderItemEntity i
+            join fetch i.imageOrder o
+            where exists (
+                select 1 from ImageFileEntity f where f.imageOrderItem = i)
+            order by o.urgencyYn desc, i.createdAt asc
+            """)
+    List<ImageOrderItemEntity> findAcquiredItemsWithImageOrder();
 }

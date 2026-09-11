@@ -3,6 +3,8 @@ package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ImageFileEntity;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ImageFileRepository;
+import kr.co.seoulit.his.labimagingservice.imaginginterpretation.entity.ImageReadingEntity;
+import kr.co.seoulit.his.labimagingservice.imaginginterpretation.repository.ImageReadingRepository;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.repository.ConsentRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistStep;
@@ -41,9 +43,10 @@ import java.util.stream.Collectors;
  *   (검사에서 SPECIMEN 때문에 피했던 것과 같은 문제. IMAGE_FILE 도 항목과 1:N 이라 마찬가지다)
  *
  * ── 아직 계산하지 않는 단계
- *   판독(IMAGE_READING): 테이블은 있으나 엔티티를 만들지 않았다. (ZP2-23, 2026-09-02 결정)
- *   세어봐야 값이 고정(0)이라, 지금 엔티티를 만들면 쓰이지 않는 코드만 남는다.
- *   기능이 붙을 때 decideNextStep 에 조건 한 줄을 추가하면 된다.
+ *   판독(IMAGE_READING) 은 ZP2-23 으로 이 계산이 실제로 붙었다 — 쿼리가 5번(접수+일정+동의+
+ *   영상파일+판독)이 된 것이 그 흔적이다. 다만 nextStep 자체는 여전히 READING 에서 멈춘다.
+ *   판독 완료 여부는 readingCompletedCount 진행도 필드로만 드러낸다 (아래 toItem/decideNextStep
+ *   주석 참고).
  *
  *   촬영(IMAGE_FILE)은 ZP2-21 로 이 계산이 실제로 붙었다 — 쿼리가 4번(접수+일정+동의+영상파일)이
  *   된 것이 그 흔적이다.
@@ -60,7 +63,13 @@ public class ImageWorklistService {
     private final ConsentRepository consentRepository;
     private final ImageOrderItemRepository imageOrderItemRepository;
     private final ImageFileRepository imageFileRepository;
+    private final ImageReadingRepository imageReadingRepository;
     private final ImageWorklistMapper imageWorklistMapper;
+
+    /** 판독상태: 완료/확정. common.cache.CommonCodeCache 검증 대상인 READING_STATUS_CD 의 "03" 값과 같다.
+     *  (ImageReadingService.STATUS_CONFIRMED 와 같은 리터럴 — 두 서비스가 이 값을 공유하는 별도 상수/enum은
+     *   두지 않는다. YnValue 를 각 서비스가 YES/NO 로 중복 선언하는 것과 같은 방식이다) */
+    private static final String READING_STATUS_CONFIRMED = "03";
 
     /**
      * 워크리스트 조회.
@@ -141,6 +150,20 @@ public class ImageWorklistService {
                         entry -> orderIdByItemId.get(entry.getKey()),
                         Collectors.summingLong(Map.Entry::getValue)));
 
+        /*
+         * ⚠ ZP2-23: 판독(IMAGE_READING)도 촬영항목에 붙으므로 fileCountByOrderId 와 같은 2단 집계다.
+         *   ImageReadingRepository.countByImageOrderItem_ImageOrderItemIdInAndReadingStatusCode 를
+         *   쓰지 않는다 — 그 메서드는 IN 절 전체에 대한 단일 스칼라 값이라 오더별로 나눌 수 없다.
+         *   대신 이미 만들어 둔 orderItemIds/orderIdByItemId 로 엔티티를 받아 같은 방식으로 묶는다.
+         *   (findByImageOrderItem_ImageOrderItemIdIn 호출이 이번에 추가된 5번째 쿼리다)
+         */
+        Map<String, Long> readingCompletedCountByOrderId = imageReadingRepository
+                .findByImageOrderItem_ImageOrderItemIdIn(orderItemIds).stream()
+                .filter(reading -> READING_STATUS_CONFIRMED.equals(reading.getReadingStatusCode()))
+                .collect(Collectors.groupingBy(
+                        reading -> orderIdByItemId.get(reading.getImageOrderItem().getImageOrderItemId()),
+                        Collectors.counting()));
+
         return receptions.stream()
                 .map(reception -> toItem(
                         reception,
@@ -151,6 +174,8 @@ public class ImageWorklistService {
                                 .getOrDefault(reception.getImageReceptionId(), 0L).intValue(),
                         orderIdsWithConsent.contains(reception.getImageOrder().getImageOrderId()),
                         fileCountByOrderId
+                                .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue(),
+                        readingCompletedCountByOrderId
                                 .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue()))
                 .toList();
     }
@@ -183,7 +208,8 @@ public class ImageWorklistService {
                                         int imageItemCount,
                                         int scheduledItemCount,
                                         boolean hasConsent,
-                                        int imageFileCount) {
+                                        int imageFileCount,
+                                        int readingCompletedCount) {
 
         ImageWorklistStep nextStep =
                 decideNextStep(imageItemCount, scheduledItemCount, hasConsent, imageFileCount);
@@ -195,6 +221,7 @@ public class ImageWorklistService {
                 scheduledItemCount,
                 hasConsent ? YES : NO,
                 imageFileCount,
+                readingCompletedCount,
                 nextStep);
     }
 
@@ -208,9 +235,11 @@ public class ImageWorklistService {
      *   동의서에는 촬영 예정일이 들어가고, 일정이 정해져야 환자에게 언제 오라고 안내하면서
      *   동의를 받는다. 실제 업무 순서가 그렇다.
      *
-     * ⚠ READING 에서 멈춘다. 판독 기능이 없어 그 다음(판독 완료 후 목록에서 빼는 것)을 판단할
-     *   근거가 없다. 그래도 값을 내려주는 이유는, 촬영까지 끝낸 건이 목록에 계속 남는 이유를
-     *   담당자가 알 수 있어야 하기 때문이다. (검사 쪽 RESULT 와 같은 취급)
+     * ⚠ READING 에서 멈춘다. 판독이 확정(03)돼도 다음 단계로 넘어가지 않는다 — 검사 쪽
+     *   WorklistStep 이 결과 확정 후에도 RESULT 에 머무는 것과 같은 원칙이다. "판독 완료 후
+     *   목록에서 빼는" 문제는 ImageWorklistStep 에 값을 더 추가하는 방식이 아니라
+     *   ImageWorklistItemDto.readingCompletedCount 진행도 칩으로 해결했다(ZP2-23) — 목록에는
+     *   계속 남고, 담당자는 "3건 중 1건 판독 완료" 식으로 진행도를 본다.
      *
      * ⚠ "영상파일이 하나라도 있으면 READING" 이다. 검체 적합성 판정처럼 항목별로 다 채워졌는지
      *   보지 않는다 — 판독 대상은 "촬영이 끝난 파일"이지 "오더의 모든 촬영항목"이 아니다.
@@ -219,6 +248,8 @@ public class ImageWorklistService {
      *   항목의 판독까지 같이 묶여 미뤄진다 — 검사 쪽과 업무 성격이 다른 지점이다)
      *
      * TODO(ZP2-23 판독): 판독이 끝난 건을 목록에서 어떻게 뺄지 정해지면 그 조건을 여기 추가한다.
+     *   → (2026-09-11 해결) "빼는" 방식이 아니라 readingCompletedCount 진행도로 표시하는 방식으로
+     *     확정했다. decideNextStep 자체는 바뀌지 않는다 — 아래 로직 그대로 READING 에서 멈춘다.
      */
     private ImageWorklistStep decideNextStep(int imageItemCount,
                                              int scheduledItemCount,

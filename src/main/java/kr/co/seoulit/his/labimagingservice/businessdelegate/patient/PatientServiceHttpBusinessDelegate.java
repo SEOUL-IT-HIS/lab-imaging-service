@@ -39,10 +39,9 @@ public class PatientServiceHttpBusinessDelegate implements PatientServiceBusines
     private final String baseUrl;
 
     public PatientServiceHttpBusinessDelegate(RestTemplate restTemplate,
-                                    @Value("${app.patient-service.host}") String host,
-                                    @Value("${app.patient-service.port}") int port) {
+                                    @Value("${app.patient-service.base-url}") String baseUrl) {
         this.restTemplate = restTemplate;
-        this.baseUrl = "http://" + host + ":" + port;
+        this.baseUrl = baseUrl;
     }
 
     @Override

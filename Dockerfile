@@ -5,5 +5,5 @@ WORKDIR /app
 
 ADD ./build/libs/*.jar /app/app.jar
 
-EXPOSE 38088
-entrypoint ["java", "-jar", "app.jar", "--server.port=38088"]
+EXPOSE 8085
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -46,10 +46,9 @@ public class AdminCommonCodeHttpBusinessDelegate implements AdminCommonCodeBusin
     private final String baseUrl;
 
     public AdminCommonCodeHttpBusinessDelegate(RestTemplate restTemplate,
-                                               @Value("${app.admin-service.host}") String host,
-                                               @Value("${app.admin-service.port}") int port) {
+                                               @Value("${app.admin-service.base-url}") String baseUrl) {
         this.restTemplate = restTemplate;
-        this.baseUrl = "http://" + host + ":" + port;
+        this.baseUrl = baseUrl;
     }
 
     /**

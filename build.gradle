@@ -31,6 +31,10 @@ dependencies {
     //   spring-kafka 만 넣으면 KafkaTemplate·KafkaAdmin 빈이 자동 생성되지 않는다.
     //   (spring-boot-restclient 처럼 Boot 4 에서 모듈이 쪼개진 사례)
     implementation 'org.springframework.boot:spring-boot-kafka'
+    // 로그인 세션 공유 (admin과 Redis에 세션을 함께 저장) — 2026-09-16 admin 팀 가이드
+    // ⚠ spring-boot-starter-data-redis 로 넣으면 Boot 4에서 조용히 무시된다(에러 없이 세션이
+    //   Redis에 안 쌓임). 세션 공유에는 반드시 이 starter를 써야 한다.
+    implementation 'org.springframework.boot:spring-boot-starter-session-data-redis'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.1'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.mapstruct:mapstruct:1.6.3'

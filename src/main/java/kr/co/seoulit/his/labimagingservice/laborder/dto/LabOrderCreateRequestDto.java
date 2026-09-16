@@ -34,11 +34,12 @@ public class LabOrderCreateRequestDto {
     private String labOrderNo;
 
     /**
-     * 연계시스템코드 (공통코드 SYSTEM_SOURCE_CD — WARD / ER / OP)
+     * 연계시스템코드 (공통코드 SYSTEM_SOURCE_CD — 01=외래/02=응급/03=병동/04=검사/05=수술.
+     * 2026-09-16 admin에 직접 조회해서 확인한 실제 값 — WARD/ER/OP 같은 영문 약어가 아니다)
      *
      * ⚠ 2026-07-16 의 Open Question 은 해소됐다. (2026-08-26)
      *   처방코어 payload 가 확정됐고, 코어는 채널 값을 보내지 않는다.
-     *   그래서 연계 수신(LabOrderIntakeService)이 "OP"(외래) 로 고정해서 채운다.
+     *   그래서 연계 수신(LabOrderIntakeService)이 "01"(외래) 로 고정해서 채운다.
      *   코어가 outpatient-service 안에 있어 지금은 채널이 외래 하나이기 때문이다.
      *
      * ⚠ 코어가 encounterType(OPD|ER|IP) 을 보내기 시작하면 그때 매핑으로 바꾼다.
@@ -46,7 +47,7 @@ public class LabOrderCreateRequestDto {
      */
     @NotBlank
     @Size(max = 10)
-    @Schema(description = "연계시스템코드 (공통코드 SYSTEM_SOURCE_CD)", example = "OP", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "연계시스템코드 (공통코드 SYSTEM_SOURCE_CD)", example = "01", requiredMode = Schema.RequiredMode.REQUIRED)
     private String systemCode;
 
     @NotBlank

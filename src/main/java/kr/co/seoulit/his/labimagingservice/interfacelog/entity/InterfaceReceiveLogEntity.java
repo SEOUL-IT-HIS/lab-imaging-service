@@ -40,7 +40,7 @@ public class InterfaceReceiveLogEntity extends BaseAuditEntity {
     @Column(name = "order_type_code", length = 10, nullable = false)
     private InterfaceOrderType orderTypeCode;
 
-    /** 수신 출처 (공통코드 SYSTEM_SOURCE_CD). 처방코어는 "OP". */
+    /** 수신 출처 (공통코드 SYSTEM_SOURCE_CD). 처방코어는 "01"(2026-09-16 admin 조회로 정정 — "OP" 아님). */
     @Column(name = "system_code", length = 10, nullable = false)
     private String systemCode;
 

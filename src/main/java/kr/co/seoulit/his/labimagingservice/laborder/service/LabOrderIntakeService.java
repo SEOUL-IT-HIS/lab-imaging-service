@@ -42,8 +42,13 @@ public class LabOrderIntakeService {
     /**
      * 수신 출처 (공통코드 SYSTEM_SOURCE_CD).
      * 처방코어가 outpatient-service 안에 있어 지금은 외래 한 채널로 고정이다.
+     *
+     * ⚠ 2026-09-16 admin에 실제로 등록된 값으로 정정 — "OP"가 아니라 "01"이다.
+     *   admin SYSTEM_SOURCE_CD 그룹은 WARD/ER/OP 같은 영문 약어가 아니라 01~05 숫자코드로
+     *   되어 있다(01=Outpatient, 02=Emergency, 03=Ward, 04=Lab, 05=Surgery — admin에
+     *   직접 조회해서 확인함). "OP"로 나가면 CommonCodeCache에 없는 값이라 매 건 REJECTED된다.
      */
-    public static final String SYSTEM_CODE_OUTPATIENT = "OP";
+    public static final String SYSTEM_CODE_OUTPATIENT = "01";
 
     /**
      * 진료구분 (공통코드 RCPT_TYPE_CD, 01 = 외래).

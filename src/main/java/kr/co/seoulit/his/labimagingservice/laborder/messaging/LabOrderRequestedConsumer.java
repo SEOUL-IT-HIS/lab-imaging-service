@@ -46,8 +46,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class LabOrderRequestedConsumer {
 
-    /** 수신 출처 (공통코드 SYSTEM_SOURCE_CD). 처방코어는 외래 채널이다. */
-    private static final String SYSTEM_CODE_OUTPATIENT = "OP";
+    /**
+     * 수신 출처 (공통코드 SYSTEM_SOURCE_CD). 처방코어는 외래 채널이다.
+     * ⚠ admin 실제 등록값은 "OP"가 아니라 "01"이다 (LabOrderIntakeService 상수와 짝 — 2026-09-16 정정).
+     */
+    private static final String SYSTEM_CODE_OUTPATIENT = "01";
 
     private final LabOrderIntakeService labOrderIntakeService;
     private final LabOrderResultedProducer labOrderResultedProducer;

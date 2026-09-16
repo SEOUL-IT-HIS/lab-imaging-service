@@ -93,7 +93,9 @@ public class LabResultService {
     private final Optional<BillingChargeProducer> billingChargeProducer;
 
     /**
-     * 발생서비스코드. 확정값이다 — admin SYSTEM_SOURCE_CD 그룹의 "05=검사시스템".
+     * 발생서비스코드. 확정값이다 — admin SYSTEM_SOURCE_CD 그룹의 "04=Lab System"
+     * (2026-09-16 admin에 직접 조회해서 정정 — "05"가 아니라 "04"다. 이 값 자체는 codeId(UUID)라
+     *  숫자코드 오기와 무관하게 처음부터 맞았다. 주석만 틀려 있었다).
      * (application.properties 의 app.billing.source-service-code 참고. 2026-09-09 확정)
      */
     @Value("${app.billing.source-service-code}")

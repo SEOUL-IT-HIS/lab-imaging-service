@@ -37,7 +37,7 @@ public class InterfaceReceiveLogSummaryDto {
     @Schema(description = "수신 대상 구분 (LAB/IMG)", example = "LAB")
     private InterfaceOrderType orderTypeCode;
 
-    @Schema(description = "수신 출처 (공통코드 SYSTEM_SOURCE_CD)", example = "OP")
+    @Schema(description = "수신 출처 (공통코드 SYSTEM_SOURCE_CD)", example = "01")
     private String systemCode;
 
     @Schema(description = "처리 결과 코드. RECEIVED 는 아직 처리 전", example = "LAB001")

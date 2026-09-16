@@ -26,7 +26,7 @@ public class BillingChargeRequestData {
     /** ⚠ 항상 null. 입원 처방 연동이 아직 없다. 병동 연동이 생기면 그때 채운다. */
     private final String admissionId;
 
-    /** 발생서비스코드. admin SYSTEM_SOURCE_CD 그룹의 "05=검사시스템" 확정값이다 (application.properties 참고) */
+    /** 발생서비스코드. admin SYSTEM_SOURCE_CD 그룹의 "04=Lab System" 확정값이다 (application.properties 참고. 2026-09-16 주석 정정 — "05" 아님) */
     private final String sourceServiceCode;
 
     /** 이 청구의 근거가 된 우리 쪽 레코드ID. 검사항목ID(LAB_ORDER_ITEM_ID)를 그대로 쓴다 */

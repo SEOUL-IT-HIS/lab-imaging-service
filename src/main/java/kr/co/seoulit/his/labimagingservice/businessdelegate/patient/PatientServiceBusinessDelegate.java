@@ -21,4 +21,16 @@ public interface PatientServiceBusinessDelegate {
      * @return 유효한 환자면 true
      */
     boolean validatePatient(String patientId);
+
+    /**
+     * 환자 성별코드 조회. (6차, 2-2 — 결과항목 참고범위에 환자 성별을 적용하기 위함)
+     *
+     * ⚠ validatePatient 와 실패 정책이 반대다(fail-open). 성별을 못 구해도 결과 입력을 막으면 안 된다 —
+     *   참고범위 판정만 "판정 보류"로 물러날 뿐 업무 자체는 계속돼야 한다. 그래서 어떤 이유로 실패하든
+     *   예외를 던지지 않고 WARN 로그만 남기고 null 을 돌려준다.
+     *
+     * @param patientId 환자ID (patient-service 내부 식별자)
+     * @return 성별코드(01 남 / 02 여 / 03 미상 / 04 기타). 조회 실패·응답 계약이 다르면 null
+     */
+    String findGenderCode(String patientId);
 }

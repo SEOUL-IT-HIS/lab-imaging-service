@@ -1,12 +1,15 @@
 package kr.co.seoulit.his.labimagingservice.labresult.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 /**
  * 일반검사 결과 수정 요청 (확정 전에만 허용)
@@ -24,10 +27,10 @@ import lombok.NoArgsConstructor;
 @Schema(description = "일반검사 결과 수정 요청 (확정 전만 가능)")
 public class LabResultUpdateRequestDto {
 
-    @NotBlank
+    /** ⚠ 6차부터 조건부 필수다 — LabResultCreateRequestDto.resultValue 주석과 같은 규칙. */
     @Size(max = 200)
-    @Schema(description = "검사 결과값 (정량 수치 또는 정성 값)", example = "5.1",
-            requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "검사 결과값 (정량 수치 또는 정성 값). 이 검사에 결과항목이 있으면 비워 두고 details 를 쓴다",
+            example = "5.1")
     private String resultValue;
 
     @Size(max = 20)
@@ -41,4 +44,9 @@ public class LabResultUpdateRequestDto {
     @Size(max = 50)
     @Schema(description = "참고범위 (비우면 정상/비정상을 판정하지 않는다)", example = "3.5-5.5")
     private String referenceRange;
+
+    /** 결과항목(상세) 목록. 6차 — LabResultCreateRequestDto.details 와 같은 규칙. */
+    @Valid
+    @Schema(description = "결과항목(상세) 목록 — 있으면 값 수정, 없어진 코드는 삭제, 새 코드는 추가")
+    private List<LabResultDetailRequestDto> details;
 }

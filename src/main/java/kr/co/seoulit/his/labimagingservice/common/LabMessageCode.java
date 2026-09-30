@@ -140,6 +140,14 @@ public final class LabMessageCode {
     public static final String LAB096 = "LAB096"; // 거부 기록은 철회할 수 없습니다.
     public static final String LAB097 = "LAB097"; // 동의가 철회되었습니다. 이미 촬영된 영상은 그대로 유지됩니다. (D14)
 
+    // ---- 결과항목(상세) + 검체·검체용기 매핑 (6차, 2026-09-30) ----
+    public static final String LAB098 = "LAB098"; // 이 검사에 허용되지 않는 검체·검체용기 조합입니다.
+    public static final String LAB099 = "LAB099"; // 이 검사에 속하지 않는 결과항목이거나, 결과항목을 지원하지 않는 검사입니다.
+    public static final String LAB100 = "LAB100"; // 같은 결과항목이 중복 입력되었습니다.
+    public static final String LAB101 = "LAB101"; // 결과항목 개수가 허용 범위를 벗어났습니다. (1~4개)
+    public static final String LAB102 = "LAB102"; // 결과항목이 필요한 검사입니다. 결과항목을 입력하세요.
+    public static final String LAB103 = "LAB103"; // 허용 검체·검체용기 조회에 성공했습니다.
+
     // ---- 로그인 사용자 연동 (5차 Phase 2, 후속조치 #7) ----
     public static final String LAB067 = "LAB067"; // 로그인이 필요합니다. (401, 세션 필수 설정일 때만)
     public static final String LAB068 = "LAB068"; // 결과 입력자와 확정자가 같습니다. (D3, 설정으로 켰을 때만)

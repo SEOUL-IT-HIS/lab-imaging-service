@@ -20,6 +20,10 @@ import java.util.List;
  *   복사해 두면 이름이 바뀔 때 어긋난다(개발표준가이드 14.1 스냅샷 금지). 수신측이 itemCode 로 풀어 쓴다.
  *   필드는 제안 형식에 맞춰 남겨 둔다.
  * ⚠ 환자명·첨부 파일 자체는 싣지 않는다.
+ *
+ * ⚠ 6차: 결과항목(상세)이 있는 검사는 items[].details[] 가 채워지고, 그 항목의 상위
+ *   resultValue/unit/referenceRange/abnormalFlag 는 전부 null 이다(2-3). 기존 방식(결과항목 없는 검사)과
+ *   미생물·병리 이벤트는 이 변경으로 한 글자도 달라지지 않는다 — details 가 비어 있으면 지금까지와 같다.
  */
 @Getter
 @Builder
@@ -63,12 +67,14 @@ public class LabResultReportedData {
         private final String itemCode;
         /** 항상 null — 클래스 주석 참고 (수신측이 itemCode 로 공통코드 조회) */
         private final String itemName;
-        /** 일반검사 결과값(문자열). 미생물·병리는 null — 아래 유형별 필드를 본다 */
+        /** 일반검사 결과값(문자열). 미생물·병리·결과항목 방식은 null — 아래 유형별 필드/details 를 본다 */
         private final String resultValue;
         private final String unit;
         private final String referenceRange;
-        /** 판정: N=정상 / A=이상. 결과 입력에 H/L 구분이 없어 두 값만 쓴다. 미생물·병리는 null */
+        /** 판정: N=정상 / A=이상. 결과 입력에 H/L 구분이 없어 두 값만 쓴다. 미생물·병리·결과항목 방식은 null */
         private final String abnormalFlag;
+        /** 결과항목(상세) 방식일 때만 채워진다(6차). 그 외에는 빈 리스트/null — 클래스 주석 참고 */
+        private final List<Detail> details;
 
         // ---- 부가 (제안 형식 외) ----
         /** GENERAL / MICROBIOLOGY / PATHOLOGY */
@@ -95,6 +101,19 @@ public class LabResultReportedData {
     public static class Susceptibility {
         private final String antibioticCode;
         private final String susceptibilityResultCode;
+    }
+
+    /** 결과항목(상세) 1건 — 6차. LAB_RESULT_DETAIL 1행에 대응 */
+    @Getter
+    @Builder
+    public static class Detail {
+        /** 결과항목코드 (RESULT_ITEM_CD) — itemName 과 같은 이유로 이름은 안 싣는다 */
+        private final String resultItemCode;
+        private final String resultValue;
+        private final String unit;
+        private final String referenceRange;
+        /** 판정: N=정상 / A=이상 */
+        private final String abnormalFlag;
     }
 
     /** LAB_RESULT.abnormal_yn(Y/N) → abnormalFlag(A/N). 값이 없으면 null */

@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.businessdelegate.patient;
 
 import kr.co.seoulit.his.labimagingservice.businessdelegate.dto.ExternalApiResponse;
+import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.dto.PatientDetailResponse;
 import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.dto.PatientValidationResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -34,6 +36,12 @@ import org.springframework.web.client.RestTemplate;
 public class PatientServiceHttpBusinessDelegate implements PatientServiceBusinessDelegate {
 
     private static final String PATIENT_VALIDATION_PATH = "/api/patient/{patientId}/validation";
+    /**
+     * 환자 상세 조회 경로. (6차, 2-2) patient-service 담당자 확인 완료(2026-09-30) — 그대로다.
+     * 기존 validatePatient 와 같은 컨벤션(단수형 "patient", 버전 접두어 없음). 응답 모양은
+     * PatientDetailResponse 클래스 주석 참고.
+     */
+    private static final String PATIENT_DETAIL_PATH = "/api/patient/{patientId}";
 
     private final RestTemplate restTemplate;
     private final String baseUrl;
@@ -68,6 +76,39 @@ public class PatientServiceHttpBusinessDelegate implements PatientServiceBusines
 
         } catch (HttpClientErrorException.NotFound e) {
             return false;
+        }
+    }
+
+    /**
+     * @see PatientServiceBusinessDelegate#findGenderCode(String)
+     * ⚠ validatePatient 와 달리 어떤 예외든(404 포함) 삼키고 null 을 돌려준다. 성별 조회 실패가
+     *   결과 등록을 막으면 안 된다는 것이 이 메서드의 계약이다(fail-open, 인터페이스 주석 참고).
+     */
+    @Override
+    public String findGenderCode(String patientId) {
+        try {
+            ResponseEntity<ExternalApiResponse<PatientDetailResponse>> response = restTemplate.exchange(
+                    baseUrl + PATIENT_DETAIL_PATH,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<>() {
+                    },
+                    patientId);
+
+            ExternalApiResponse<PatientDetailResponse> body = response.getBody();
+            PatientDetailResponse detail = (body == null) ? null : body.getData();
+            if (detail == null) {
+                log.warn("환자 상세 응답에서 데이터를 읽지 못했습니다. patientId={}", patientId);
+                return null;
+            }
+            return detail.getGenderCd();
+
+        } catch (RestClientException e) {
+            // 404·5xx·타임아웃·커넥션 거부·응답 파싱 실패 전부 여기로 온다. 참고범위 판정만 보류될 뿐이므로
+            // 결과 등록 자체를 막지 않는다(2-2). 자주 실패한다면 이 로그가 patient-service 쪽 문제를 드러낸다.
+            log.warn("환자 성별 조회 실패 — 참고범위 판정 없이 진행합니다. patientId={}, 사유={}",
+                    patientId, e.getMessage());
+            return null;
         }
     }
 }

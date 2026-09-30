@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 접수 1건의 검사항목 + 그 항목의 결과 (결과 등록 화면용)
  * 대응 유스케이스: UC-RST-01 (ZP2-104 화면 연동)
@@ -46,4 +48,11 @@ public class LabResultItemDto {
 
     @Schema(description = "등록된 일반검사 결과. 아직 등록 전이거나 GENERAL 이 아니면 null")
     private LabResultSummaryDto result;
+
+    /**
+     * 결과항목 입력 양식. 6차 — 이 검사에 LAB_RESULT_ITEM_RULE 규칙이 있을 때만 채워진다(순번 순).
+     * 규칙이 없는 검사(기존 방식)는 빈 배열이고, 화면은 이 경우 기존 단일 입력 칸을 그대로 보여준다.
+     */
+    @Schema(description = "결과항목 입력 양식 — 규칙이 없는 검사는 빈 배열")
+    private List<LabResultEntryItemDto> entryItems;
 }

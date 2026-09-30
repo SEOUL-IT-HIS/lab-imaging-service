@@ -7,6 +7,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
+
+// ⚠ 6차: toBuilder=true 추가. LabResultMapper.toResponse 는 details 를 채우지 않고(ignore),
+//   Service 가 toResponse(entity).toBuilder().details(...).build() 로 채운다 — 목록 조회에서
+//   IN 절로 미리 조회한 상세를 붙이려면 매퍼가 엔티티의 LAZY details 를 자동으로 건드리면 안 된다.
 
 /**
  * 일반검사 결과 응답 (목록/단건 공용)
@@ -20,7 +25,7 @@ import java.time.LocalDateTime;
  *   (검체 판정은 재호출할 일이 없어 PK 를 빼지만, 결과는 확정 단계가 남아 있어 필요하다)
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "일반검사 결과 응답")
@@ -62,4 +67,8 @@ public class LabResultSummaryDto {
 
     @Schema(description = "결과 확정자ID (확정 전이면 null)", example = "STF00035")
     private String confirmedById;
+
+    /** 결과항목(상세) 목록. 6차 — 기존 방식(결과항목 없음) 결과는 빈 배열. */
+    @Schema(description = "결과항목(상세) 목록 — 이 검사에 결과항목이 없으면 빈 배열")
+    private List<LabResultDetailDto> details;
 }

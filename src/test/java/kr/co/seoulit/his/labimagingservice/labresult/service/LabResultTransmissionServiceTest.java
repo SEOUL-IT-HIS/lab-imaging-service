@@ -8,6 +8,7 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.messaging.dto.EventEnvelope;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultDetailEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.messaging.dto.LabResultReportedData;
 import kr.co.seoulit.his.labimagingservice.labresult.microbiology.repository.MicrobiologyResultRepository;
@@ -128,6 +129,53 @@ class LabResultTransmissionServiceTest {
         assertThat(item.getResultValue()).isEqualTo("5.2");
         assertThat(item.getAbnormalFlag()).isEqualTo("N"); // abnormal_yn N → N
         assertThat(item.getResultType()).isEqualTo("GENERAL");
+        assertThat(item.getDetails()).isNull(); // 결과항목 없는 검사(기존 방식) — details 는 안 채운다
+    }
+
+    @Test
+    @DisplayName("6차: 결과항목(상세)이 있는 검사는 상위 resultValue/unit/referenceRange/abnormalFlag 가 전부 null 이고 items[].details[] 가 채워진다")
+    @SuppressWarnings("unchecked")
+    void detailModeFillsDetailsAndNullsHeader() {
+        LabResultDetailEntity d1 = detail(1, "H01", "4.5", "10^6/uL", "4.0-5.5", "N");
+        LabResultDetailEntity d2 = detail(2, "H02", "13.9", "g/dL", "13.0-17.0", "Y");
+        when(result.getDetails()).thenReturn(List.of(d1, d2));
+
+        service.transmitGeneral(result);
+
+        ArgumentCaptor<Function<String, Object>> factory = ArgumentCaptor.forClass(Function.class);
+        verify(sendLogService).recordPending(eq(SendEventType.RESULT), eq("res-1"), eq("01"), factory.capture());
+        EventEnvelope<LabResultReportedData> envelope =
+                (EventEnvelope<LabResultReportedData>) factory.getValue().apply("evt-1");
+
+        LabResultReportedData.Item item = envelope.getData().getItems().get(0);
+        assertThat(item.getResultValue()).isNull();
+        assertThat(item.getUnit()).isNull();
+        assertThat(item.getReferenceRange()).isNull();
+        assertThat(item.getAbnormalFlag()).isNull();
+
+        assertThat(item.getDetails()).hasSize(2);
+        LabResultReportedData.Detail reportedD1 = item.getDetails().get(0);
+        assertThat(reportedD1.getResultItemCode()).isEqualTo("H01");
+        assertThat(reportedD1.getResultValue()).isEqualTo("4.5");
+        assertThat(reportedD1.getUnit()).isEqualTo("10^6/uL");
+        assertThat(reportedD1.getReferenceRange()).isEqualTo("4.0-5.5");
+        assertThat(reportedD1.getAbnormalFlag()).isEqualTo("N");
+
+        LabResultReportedData.Detail reportedD2 = item.getDetails().get(1);
+        assertThat(reportedD2.getResultItemCode()).isEqualTo("H02");
+        assertThat(reportedD2.getAbnormalFlag()).isEqualTo("A"); // abnormal_yn Y → A
+    }
+
+    private static LabResultDetailEntity detail(int seq, String resultItemCode, String resultValue,
+                                                 String resultUnit, String referenceRange, String abnormalYn) {
+        LabResultDetailEntity detail = mock(LabResultDetailEntity.class);
+        when(detail.getDetailSeq()).thenReturn(seq);
+        when(detail.getResultItemCode()).thenReturn(resultItemCode);
+        when(detail.getResultValue()).thenReturn(resultValue);
+        when(detail.getResultUnit()).thenReturn(resultUnit);
+        when(detail.getReferenceRange()).thenReturn(referenceRange);
+        when(detail.getAbnormalYn()).thenReturn(abnormalYn);
+        return detail;
     }
 
     @Test

@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,8 +45,12 @@ public class LabResultEntity extends BaseAuditEntity {
     /**
      * ⚠ 숫자가 아니라 문자열이다. 정성검사 결과("음성", "Positive")가 같은 컬럼에 들어온다.
      *   숫자로 잡으면 정성 결과를 담을 수 없고, 유효숫자(0.50 vs 0.5)도 입력한 그대로 못 남긴다.
+     *
+     * ⚠ 6차(2026-09-30)에서 NULL 허용으로 바뀌었다. 이 검사에 결과항목(상세) 규칙이 있으면
+     *   값은 여기가 아니라 LAB_RESULT_DETAIL 에 들어가고 이 컬럼은 NULL 로 둔다(2-2 "두 가지 방식").
+     *   규칙이 없는 검사(기존 방식)는 지금까지처럼 이 컬럼에 값이 들어간다.
      */
-    @Column(name = "result_value", length = 200, nullable = false)
+    @Column(name = "result_value", length = 200)
     private String resultValue;
 
     @Column(name = "result_unit", length = 20)
@@ -64,7 +70,10 @@ public class LabResultEntity extends BaseAuditEntity {
     /**
      * ⚠ 요청값을 그대로 받지 않는다. 참고범위와 결과값을 비교해 서버가 계산한다. (ZP2-99)
      *   입력자가 직접 정하게 두면 같은 수치가 사람마다 다르게 분류된다.
-     *   판정 규칙은 LabResultService.decideAbnormalYn 참고.
+     *   판정 규칙은 AbnormalYnDecider.decide 참고(옛 LabResultService.decideAbnormalYn 을 6차에서 추출).
+     *
+     * ⚠ 결과항목(상세)이 있는 검사는 "상세 중 하나라도 이상(Y)이면 Y" 로 집계한 값이다(2-2).
+     *   항목별 이상 여부는 LAB_RESULT_DETAIL.abnormal_yn 에 따로 있다 — 이 컬럼은 헤더 요약이다.
      */
     @Column(name = "abnormal_yn", columnDefinition = "CHAR(1)", nullable = false)
     private String abnormalYn;
@@ -85,6 +94,15 @@ public class LabResultEntity extends BaseAuditEntity {
 
     @Column(name = "confirmed_by_id", length = 36)
     private String confirmedById;
+
+    /**
+     * 결과항목(상세) 목록 (1:N). 6차 — 이 검사에 LAB_RESULT_ITEM_RULE 규칙이 있을 때만 채워진다.
+     * ⚠ 수정은 "통째로 교체"다(MicrobiologyResultEntity.susceptibilities 와 같은 패턴) —
+     *   replaceDetails 참고. orphanRemoval 로 빠진 항목은 DELETE 된다.
+     */
+    @OneToMany(mappedBy = "labResult", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("detailSeq asc")
+    private List<LabResultDetailEntity> details = new ArrayList<>();
 
     @Builder
     public LabResultEntity(String resultValue, String resultUnit, String referenceRange,
@@ -122,6 +140,23 @@ public class LabResultEntity extends BaseAuditEntity {
         this.resultUnit = resultUnit;
         this.referenceRange = referenceRange;
         this.abnormalYn = abnormalYn;
+    }
+
+    /**
+     * 헤더의 이상여부만 다시 계산해 반영한다. (6차 — 결과항목 방식 전용)
+     * ⚠ resultValue/resultUnit/referenceRange 는 결과항목 방식에서 항상 NULL 이라 건드리지 않는다.
+     */
+    public void updateAbnormalYn(String abnormalYn) {
+        this.abnormalYn = abnormalYn;
+    }
+
+    /** 결과항목 목록을 통째로 교체한다. (등록·수정 공용, 6차) */
+    public void replaceDetails(List<LabResultDetailEntity> next) {
+        this.details.clear();
+        for (LabResultDetailEntity detail : next) {
+            detail.assignLabResult(this);
+            this.details.add(detail);
+        }
     }
 
     /**

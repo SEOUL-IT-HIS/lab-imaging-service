@@ -3,17 +3,23 @@ package kr.co.seoulit.his.labimagingservice.labspecimen.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenRuleDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.FitnessStatus;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.LabTestSpecimenRuleEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenAcceptanceEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenType;
 import kr.co.seoulit.his.labimagingservice.labspecimen.mapper.SpecimenMapper;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenAcceptanceRepository;
+import kr.co.seoulit.his.labimagingservice.labspecimen.repository.LabTestSpecimenRuleRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,19 +45,29 @@ import java.util.stream.Collectors;
  *
  * ⚠ 환자 검증(PatientServiceBusinessDelegate.validatePatient)은 호출하지 않는다.
  *   검체는 이미 접수된 건에 붙는 것이고, 그 접수를 만들 때 환자ID를 이미 검증했다.
+ *
+ * ── 검사별 검체·검체용기 매핑 (6차, 2026-09-30)
+ *   ZP2-7 계열 검증에 "이 검사가 허용하는 검체·용기인가"를 추가했다. 기준은 LAB_TEST_SPECIMEN_RULE.
+ *   접수 하나에 검사항목이 여럿이면 각 항목의 허용 규칙을 합쳐서(합집합) 검증한다 — 한 접수에서
+ *   검체를 여러 번 채취할 때 검사마다 다른 검체가 필요할 수 있어서다(예: 혈액+소변 검사가 같은 접수에 있음).
+ *   규칙이 하나도 없는 검사코드만 있으면(아직 매핑을 안 넣은 검사) 막지 않고 WARN 만 남긴다 —
+ *   기준 데이터 누락으로 정상 업무가 막히면 안 된다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SpecimenService {
 
     /** 바코드 채번 재시도 상한. 이 횟수를 넘길 확률은 사실상 0이지만, 무한 루프를 막으려고 둔다. */
     private static final int BARCODE_GENERATION_MAX_ATTEMPTS = 5;
+    private static final String USE_Y = "Y";
 
     private final SpecimenRepository specimenRepository;
     private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
     private final CommonCodeCache commonCodeCache;
     private final SpecimenMapper specimenMapper;
     private final LabReceptionRepository labReceptionRepository;
+    private final LabTestSpecimenRuleRepository labTestSpecimenRuleRepository;
 
     @Transactional
     public SpecimenSummaryDto createSpecimen(SpecimenCreateRequestDto request) {
@@ -61,6 +77,7 @@ public class SpecimenService {
                         LabMessageCode.LAB013, "검사 접수 정보를 찾을 수 없습니다."));
 
         validateCode("SPECIMEN_CONTAINER_CD", request.getSpecimenContainerCode(), "검체용기코드");
+        validateSpecimenCombination(reception, request.getSpecimenType(), request.getSpecimenContainerCode());
 
         String patientId = resolvePatientId(reception, request.getPatientId());
 
@@ -99,6 +116,77 @@ public class SpecimenService {
                     "환자 정보가 일치하지 않습니다. (labReceptionId=" + reception.getLabReceptionId() + ")");
         }
         return requestedPatientId;
+    }
+
+    /**
+     * 이 접수에서 (검체종류, 검체용기) 조합이 허용되는지 검증한다. (6차, 2-1)
+     *
+     * 기준: 접수 → 오더 → 검사항목코드들 → LAB_TEST_SPECIMEN_RULE(use_yn='Y')의 합집합.
+     * ⚠ 항목마다 따로 검증하지 않는다. 한 접수 안의 검사들이 서로 다른 검체를 요구할 수 있어(혈액+소변),
+     *   "이 접수에서 나올 수 있는 조합 전체"를 하나의 허용 집합으로 본다.
+     * ⚠ 규칙이 하나도 없으면(매핑 미등록 검사만 있는 접수) 막지 않는다 — 기준 데이터 누락이
+     *   정상적인 검체 등록을 막아서는 안 된다. 대신 운영에서 놓친 매핑을 알 수 있게 WARN을 남긴다.
+     */
+    private void validateSpecimenCombination(LabReceptionEntity reception, SpecimenType specimenType,
+                                             String specimenContainerCode) {
+        List<String> testTypeCodes = reception.getLabOrder().getOrderItems().stream()
+                .map(LabOrderItemEntity::getLabItemCode)
+                .distinct()
+                .toList();
+        if (testTypeCodes.isEmpty()) {
+            return;
+        }
+
+        List<LabTestSpecimenRuleEntity> rules =
+                labTestSpecimenRuleRepository.findByTestTypeCodeInAndUseYn(testTypeCodes, USE_Y);
+        if (rules.isEmpty()) {
+            log.warn("[SPECIMEN] 검체·용기 허용 규칙이 없는 검사만 있는 접수입니다. 조합 검증을 건너뜁니다. "
+                    + "(labReceptionId={}, 검사항목={})", reception.getLabReceptionId(), testTypeCodes);
+            return;
+        }
+
+        boolean allowed = rules.stream().anyMatch(rule ->
+                rule.getSpecimenTypeCode().equals(specimenType.name())
+                        && rule.getSpecimenContainerCode().equals(specimenContainerCode));
+        if (!allowed) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB098,
+                    "이 검사에 허용되지 않는 검체·검체용기 조합입니다. (검체종류=" + specimenType
+                            + ", 검체용기코드=" + specimenContainerCode + ", 검사항목=" + testTypeCodes + ")");
+        }
+    }
+
+    /**
+     * 접수번호로 허용되는 (검체종류, 검체용기) 조합을 조회한다. (6차, 2-1)
+     * 화면이 검체종류 → 검체용기 연쇄 선택지를 채우는 데 쓴다. 검증 규칙(validateSpecimenCombination)과
+     * 같은 기준(합집합)을 쓴다 — 한쪽만 바뀌면 "화면에서 고를 수 있는데 서버가 거절하는" 불일치가 생긴다.
+     *
+     * ⚠ 규칙이 없는 검사만 있는 접수는 빈 목록을 반환한다. 그 경우 화면은 제한 없이 보여주면 된다
+     *   (검증도 같은 경우에 통과시킨다 — createSpecimen 의 WARN-then-allow와 짝이 맞는다).
+     */
+    @Transactional(readOnly = true)
+    public List<SpecimenRuleDto> getAllowedSpecimenRules(String receptionNo) {
+        LabReceptionEntity reception = labReceptionRepository.findByReceptionNo(receptionNo)
+                .orElseThrow(() -> new LabImagingBusinessException(
+                        LabMessageCode.LAB013, "검사 접수 정보를 찾을 수 없습니다. (receptionNo=" + receptionNo + ")"));
+
+        List<String> testTypeCodes = reception.getLabOrder().getOrderItems().stream()
+                .map(LabOrderItemEntity::getLabItemCode)
+                .distinct()
+                .toList();
+        if (testTypeCodes.isEmpty()) {
+            return List.of();
+        }
+
+        return labTestSpecimenRuleRepository.findByTestTypeCodeInAndUseYn(testTypeCodes, USE_Y).stream()
+                .map(rule -> SpecimenRuleDto.builder()
+                        .specimenType(rule.getSpecimenTypeCode())
+                        .specimenContainerCode(rule.getSpecimenContainerCode())
+                        .defaultYn(rule.getDefaultYn())
+                        .build())
+                // 서로 다른 검사항목이 같은 조합을 허용하면 규칙 행이 중복될 수 있다. 화면 선택지는 조합당 1개면 된다.
+                .distinct()
+                .toList();
     }
 
     // ------ 검체 목록 조회 ------

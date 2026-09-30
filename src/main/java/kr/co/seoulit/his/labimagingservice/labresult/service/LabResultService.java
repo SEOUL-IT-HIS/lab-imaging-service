@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.labresult.service;
 
 import kr.co.seoulit.his.labimagingservice.billing.service.BillingChargeService;
+import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServiceBusinessDelegate;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -11,11 +12,19 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultDetailRequestDto;
+import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultEntryItemDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultItemDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultUpdateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabReferenceRangeEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultDetailEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultItemRuleEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.mapper.LabResultMapper;
+import kr.co.seoulit.his.labimagingservice.labresult.repository.LabReferenceRangeRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultDetailRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultItemRuleRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultType;
 import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultTypeResolver;
@@ -31,10 +40,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -61,6 +73,18 @@ import java.util.stream.Collectors;
  *        결과의 신뢰 구간이 생긴다.
  *   ⚠ 이 해석이 틀렸다면(확정 후에도 정정이 필요하고 그 이력을 남겨야 한다면) 스키마부터 바뀌어야 한다.
  *     그건 이번 범위가 아니라 임의로 테이블을 만들지 않았다.
+ *
+ * ── 결과항목(상세) — 6차 (2026-09-30)
+ *   일반검사(01~04)는 검사 1건에 결과항목이 1~3개다(백혈구/적혈구/혈소판처럼). 검사에
+ *   LAB_RESULT_ITEM_RULE(use_yn='Y') 행이 있으면 "결과항목 방식", 없으면 지금까지의 "기존 방식"이다.
+ *   두 방식은 같은 API(createLabResult/updateLabResult)를 쓰되 요청의 details 유무로 갈린다.
+ *   ⚠ 결과항목 방식은 LAB_RESULT.result_value/unit/reference_range 를 전부 NULL 로 둔다.
+ *     실제 값은 LAB_RESULT_DETAIL 에 항목별로 들어가고, 헤더 abnormal_yn 은 "상세 중 하나라도
+ *     이상이면 Y"로 집계한 값이다.
+ *   ⚠ 참고범위·단위는 클라이언트가 보내지 않는다(요청 DTO 에 필드 자체가 없다) — 서버가
+ *     LAB_RESULT_ITEM_RULE.default_unit 과 LAB_REFERENCE_RANGE(환자 성별 적용)에서 가져온다.
+ *     "클라이언트가 보낸 값을 대체값으로 쓴다"는 2-2 문구는 결과항목 규칙 자체가 없는 검사,
+ *     즉 기존 방식에 대한 설명으로 해석했다 — 기존 방식은 지금까지처럼 요청값을 그대로 쓴다.
  */
 @Slf4j
 @Service
@@ -69,11 +93,18 @@ public class LabResultService {
 
     /** 공통코드 그룹 — admin 에 01=등록, 02=확정으로 등록되어 있어야 한다. */
     private static final String RESULT_STATUS_CD = "RESULT_STATUS_CD";
+    /** 공통코드 그룹 — 결과항목코드 (6차) */
+    private static final String RESULT_ITEM_CD = "RESULT_ITEM_CD";
 
     /** 결과상태: 등록(입력만 된 상태, 수정 가능) */
     private static final String STATUS_RECORDED = "01";
     /** 결과상태: 확정(더 이상 수정 불가) */
     private static final String STATUS_CONFIRMED = "02";
+
+    /** LAB_REFERENCE_RANGE.sex_code 의 공통값. 환자 성별(01/02)에 맞는 행이 없을 때 이 행을 쓴다. */
+    private static final String SEX_ALL = "ALL";
+    /** 결과항목 개수 상한 (2-2, "시스템 상한 4개") */
+    private static final int MAX_DETAILS = 4;
 
     private static final String YES = "Y";
     private static final String NO = "N";
@@ -92,6 +123,14 @@ public class LabResultService {
     private final LabResultTransmissionService labResultTransmissionService;
     /** 검사항목 → 결과유형(일반/미생물/병리). 5차 D1 */
     private final LabResultTypeResolver labResultTypeResolver;
+    /** 검사별 결과항목 기준 (6차) */
+    private final LabResultItemRuleRepository labResultItemRuleRepository;
+    /** 결과항목별 참고범위, 성별 구분 (6차) */
+    private final LabReferenceRangeRepository labReferenceRangeRepository;
+    /** 목록 조회에서 결과항목을 배치로 붙이기 위한 조회 전용 (N+1 방지, 6차) */
+    private final LabResultDetailRepository labResultDetailRepository;
+    /** 결과항목 참고범위에 적용할 환자 성별 조회 (6차, 2-2) */
+    private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
 
     /**
      * D3 입력자=확정자 금지 스위치. 기본 false(막지 않음 — 시연 환경 1인).
@@ -111,7 +150,7 @@ public class LabResultService {
      *   1) 검사항목 존재 확인 — 없는 항목에 결과를 붙일 수는 없다. (ZP2-103)
      *   2) 중복 등록 차단 — 검사항목 1건당 결과 1건(1:1)이다. (ZP2-103)
      *   3) 결과상태 공통코드 검증 — 아래 주석 참고. (ZP2-103)
-     *   4) 참고범위로 정상/비정상 판정. (ZP2-99)
+     *   4) 이 검사에 결과항목 규칙이 있는지에 따라 두 방식 중 하나로 저장한다. (6차, 2-2)
      *   5) 저장.
      *
      * ⚠ 상태는 요청값이 아니라 "01"(등록)로 강제한다. 등록이 곧 확정이 되면
@@ -155,19 +194,48 @@ public class LabResultService {
 
         validateCode(RESULT_STATUS_CD, STATUS_RECORDED, "결과상태코드");
 
-        LabResultEntity labResult = LabResultEntity.builder()
-                .resultValue(request.getResultValue())
-                .resultUnit(request.getResultUnit())
-                .referenceRange(request.getReferenceRange())
-                .abnormalYn(decideAbnormalYn(request.getResultValue(), request.getReferenceRange()))
-                .resultStatusCode(STATUS_RECORDED)
-                // 클라이언트 시계를 신뢰하지 않는다. 입력 시각의 기준은 서버 하나여야 한다.
-                .recordedAt(LocalDateTime.now())
-                .recordedById(request.getRecordedById())
-                .build();
-        labResult.assignLabOrderItem(labOrderItem);
+        List<LabResultItemRuleEntity> itemRules =
+                labResultItemRuleRepository.findByTestTypeCodeAndUseYnOrderByItemSeqAsc(
+                        labOrderItem.getLabItemCode(), YES);
 
-        return labResultMapper.toResponse(labResultRepository.save(labResult));
+        LabResultEntity labResult;
+        if (itemRules.isEmpty()) {
+            // 기존 방식 — 규칙이 없는 검사. 동작은 6차 이전과 동일하다(회귀 금지).
+            rejectIfDetailsSentToUnsupportedTest(request.getDetails(), labOrderItem.getLabItemCode());
+            requireResultValue(request.getResultValue());
+
+            labResult = LabResultEntity.builder()
+                    .resultValue(request.getResultValue())
+                    .resultUnit(request.getResultUnit())
+                    .referenceRange(request.getReferenceRange())
+                    .abnormalYn(AbnormalYnDecider.decide(request.getResultValue(), request.getReferenceRange()))
+                    .resultStatusCode(STATUS_RECORDED)
+                    // 클라이언트 시계를 신뢰하지 않는다. 입력 시각의 기준은 서버 하나여야 한다.
+                    .recordedAt(LocalDateTime.now())
+                    .recordedById(request.getRecordedById())
+                    .build();
+            labResult.assignLabOrderItem(labOrderItem);
+
+        } else {
+            // 결과항목 방식 — 헤더의 resultValue/resultUnit/referenceRange 는 전부 NULL 로 둔다.
+            List<LabResultDetailEntity> detailEntities =
+                    buildValidatedDetails(request.getDetails(), itemRules, labOrderItem.getLabOrder().getPatientId());
+
+            labResult = LabResultEntity.builder()
+                    .resultValue(null)
+                    .resultUnit(null)
+                    .referenceRange(null)
+                    .abnormalYn(aggregateAbnormalYn(detailEntities))
+                    .resultStatusCode(STATUS_RECORDED)
+                    .recordedAt(LocalDateTime.now())
+                    .recordedById(request.getRecordedById())
+                    .build();
+            labResult.assignLabOrderItem(labOrderItem);
+            labResult.replaceDetails(detailEntities);
+        }
+
+        LabResultEntity saved = labResultRepository.save(labResult);
+        return toResponseWithDetails(saved);
     }
 
     /**
@@ -240,6 +308,12 @@ public class LabResultService {
      *
      * ⚠ 참고범위가 함께 바뀔 수 있으므로 abnormalYn 을 다시 계산한다.
      *   값만 고치고 판정을 그대로 두면 "범위 안인데 비정상"인 행이 남는다.
+     *
+     * ⚠ 6차: 결과항목 방식이면 details 를 통째로 교체(replaceDetails)하고 헤더 abnormal_yn 을
+     *   다시 집계한다. 기존 방식이면 지금까지와 동일하게 헤더 값만 고친다. 어느 방식인지는
+     *   등록 시점과 같은 기준(이 검사에 결과항목 규칙이 있는가)으로 판단한다 — 등록 후에
+     *   admin 에서 규칙을 새로 추가/삭제해도 "이 결과가 어느 방식으로 등록됐는지"가 바뀌면
+     *   안 되지만, 그 경합은 이번 범위에서 다루지 않는다(운영 중 마스터 변경은 드묾).
      */
     @Transactional
     public LabResultSummaryDto updateLabResult(String labResultId, LabResultUpdateRequestDto request) {
@@ -253,14 +327,29 @@ public class LabResultService {
             );
         }
 
-        labResult.modifyResult(
-                request.getResultValue(),
-                request.getResultUnit(),
-                request.getReferenceRange(),
-                decideAbnormalYn(request.getResultValue(), request.getReferenceRange()));
+        LabOrderItemEntity labOrderItem = labResult.getLabOrderItem();
+        List<LabResultItemRuleEntity> itemRules =
+                labResultItemRuleRepository.findByTestTypeCodeAndUseYnOrderByItemSeqAsc(
+                        labOrderItem.getLabItemCode(), YES);
+
+        if (itemRules.isEmpty()) {
+            rejectIfDetailsSentToUnsupportedTest(request.getDetails(), labOrderItem.getLabItemCode());
+            requireResultValue(request.getResultValue());
+
+            labResult.modifyResult(
+                    request.getResultValue(),
+                    request.getResultUnit(),
+                    request.getReferenceRange(),
+                    AbnormalYnDecider.decide(request.getResultValue(), request.getReferenceRange()));
+        } else {
+            List<LabResultDetailEntity> detailEntities =
+                    buildValidatedDetails(request.getDetails(), itemRules, labOrderItem.getLabOrder().getPatientId());
+            labResult.replaceDetails(detailEntities);
+            labResult.updateAbnormalYn(aggregateAbnormalYn(detailEntities));
+        }
 
         // 영속 상태라 flush 시점에 반영된다. save 를 다시 부를 필요가 없다.
-        return labResultMapper.toResponse(labResult);
+        return toResponseWithDetails(labResult);
     }
 
     /**
@@ -300,7 +389,7 @@ public class LabResultService {
         // 결과 전송 (결과 1건 = 이벤트 1건, D10). 청구와 같이 이력에 남고 커밋 후 발행된다. 실패해도 확정은 성공한다.
         labResultTransmissionService.transmitGeneral(labResult);
 
-        return labResultMapper.toResponse(labResult);
+        return toResponseWithDetails(labResult);
     }
 
     // ------------------------------------------------------------------
@@ -309,7 +398,7 @@ public class LabResultService {
 
     @Transactional(readOnly = true)
     public LabResultSummaryDto getLabResultById(String labResultId) {
-        return labResultMapper.toResponse(findResultOrThrow(labResultId));
+        return toResponseWithDetails(findResultOrThrow(labResultId));
     }
 
     /**
@@ -322,6 +411,11 @@ public class LabResultService {
      * ⚠ 결과는 항목ID 목록으로 한 번에 조회해 메모리에서 붙인다.
      *   항목마다 결과를 조회하면 항목 수만큼 쿼리가 나간다(N+1).
      *   (LabWorklistService 의 IN 절 조립, SpecimenService.findFitnessStatus 와 같은 방식)
+     *
+     * ⚠ 6차: entryItems(결과항목 입력 양식)를 함께 담는다(2-4). 이 접수의 검사항목코드들에 대한
+     *   결과항목 규칙·참고범위·환자 성별을 전부 배치로 한 번씩만 조회한다 — "환자 성별 조회는
+     *   접수당 1회만"(항목마다 부르지 않는다). 결과항목 규칙이 하나도 없는 접수면 성별 조회 자체를
+     *   생략한다(불필요한 외부 호출을 만들지 않는다).
      */
     @Transactional(readOnly = true)
     public List<LabResultItemDto> getResultItemsByReceptionNo(String receptionNo) {
@@ -336,21 +430,65 @@ public class LabResultService {
                 .map(LabOrderItemEntity::getLabOrderItemId)
                 .toList();
 
-        Map<String, LabResultEntity> resultByItemId = labResultRepository
-                .findByLabOrderItem_LabOrderItemIdIn(itemIds).stream()
+        List<LabResultEntity> results = labResultRepository.findByLabOrderItem_LabOrderItemIdIn(itemIds);
+        Map<String, LabResultEntity> resultByItemId = results.stream()
                 .collect(Collectors.toMap(
                         result -> result.getLabOrderItem().getLabOrderItemId(),
                         result -> result));
 
+        List<String> resultIds = results.stream().map(LabResultEntity::getLabResultId).toList();
+        Map<String, List<LabResultDetailEntity>> detailsByResultId = resultIds.isEmpty()
+                ? Map.of()
+                : labResultDetailRepository.findByLabResult_LabResultIdInOrderByDetailSeqAsc(resultIds).stream()
+                        .collect(Collectors.groupingBy(d -> d.getLabResult().getLabResultId()));
+
+        // 결과항목 규칙 — 이 접수의 검사항목코드들 전체를 한 번에 조회
+        List<String> testTypeCodes = items.stream()
+                .map(LabOrderItemEntity::getLabItemCode)
+                .distinct()
+                .toList();
+        List<LabResultItemRuleEntity> allRules = labResultItemRuleRepository
+                .findByTestTypeCodeInAndUseYnOrderByTestTypeCodeAscItemSeqAsc(testTypeCodes, YES);
+        Map<String, List<LabResultItemRuleEntity>> rulesByTestType = allRules.stream()
+                .collect(Collectors.groupingBy(LabResultItemRuleEntity::getTestTypeCode));
+
+        // 결과항목 규칙이 있는 접수만 환자 성별을 조회한다 — 없으면 참고범위를 적용할 대상 자체가 없다.
+        String genderCode = allRules.isEmpty()
+                ? null
+                : patientServiceBusinessDelegate.findGenderCode(items.get(0).getLabOrder().getPatientId());
+
+        List<String> allResultItemCodes = allRules.stream()
+                .map(LabResultItemRuleEntity::getResultItemCode)
+                .distinct()
+                .toList();
+        Map<String, String> referenceRangeByCode = resolveReferenceRanges(allResultItemCodes, genderCode);
+
         return items.stream()
                 .map(item -> {
                     LabResultEntity result = resultByItemId.get(item.getLabOrderItemId());
+                    LabResultSummaryDto resultDto = (result == null) ? null : labResultMapper.toResponse(result)
+                            .toBuilder()
+                            .details(labResultMapper.toDetailResponseList(
+                                    detailsByResultId.getOrDefault(result.getLabResultId(), List.of())))
+                            .build();
+
+                    List<LabResultEntryItemDto> entryItems = rulesByTestType
+                            .getOrDefault(item.getLabItemCode(), List.of()).stream()
+                            .map(rule -> LabResultEntryItemDto.builder()
+                                    .resultItemCode(rule.getResultItemCode())
+                                    .itemSeq(rule.getItemSeq())
+                                    .defaultUnit(rule.getDefaultUnit())
+                                    .referenceRange(referenceRangeByCode.get(rule.getResultItemCode()))
+                                    .build())
+                            .toList();
+
                     return LabResultItemDto.builder()
                             .labOrderItemId(item.getLabOrderItemId())
                             .labItemCode(item.getLabItemCode())
                             .resultType(labResultTypeResolver.resolve(item.getLabItemCode()).name())
                             // 결과가 없는 항목은 null 로 둔다. 화면이 "미등록"으로 읽는다.
-                            .result(result == null ? null : labResultMapper.toResponse(result))
+                            .result(resultDto)
+                            .entryItems(entryItems)
                             .build();
                 })
                 .toList();
@@ -368,84 +506,131 @@ public class LabResultService {
                         LabMessageCode.LAB037,
                         "등록된 검사 결과를 찾을 수 없습니다. (labOrderItemId=" + labOrderItemId + ")"
                 ));
-        return labResultMapper.toResponse(labResult);
+        return toResponseWithDetails(labResult);
     }
 
     // ------------------------------------------------------------------
-    // ZP2-99 기준값 및 참고범위 적용
+    // 결과항목(상세) — 6차, 2-2
     // ------------------------------------------------------------------
 
-    /**
-     * 참고범위와 결과값을 비교해 비정상 여부를 판정한다. (ZP2-99)
-     *
-     * ── 설계: 참고범위는 "정상으로 보는 값"이다
-     *   정량("3.5-5.5")과 정성("음성")을 한 컬럼으로 다루기 위해 이렇게 정의했다.
-     *   컬럼을 나누면 검사항목마다 어느 쪽을 쓰는지 판단해야 하는데, 그 구분 정보가 아직 없다.
-     *
-     * ── 판정 규칙
-     *   1) 참고범위가 없으면          → N. 비교할 기준이 없다.
-     *   2) "min-max" 이고 결과가 숫자 → 범위를 벗어나면 Y.
-     *   3) 그 밖(정성값)             → 참고범위에 적힌 값과 다르면 Y.
-     *                                  쉼표로 여러 정상값을 줄 수 있다. ("음성,정상")
-     *
-     * ⚠ 1번을 Y 가 아니라 N 으로 두는 이유 —
-     *   기준이 없는 것과 비정상인 것은 다르다. Y 로 두면 참고범위를 안 적은 결과가 전부
-     *   비정상으로 쌓여, 정작 진짜 비정상 건이 묻힌다.
-     *   대신 판정하지 않았다는 사실이 화면에서 드러나야 한다 — 참고범위 칸이 비어 있는 것이 그 신호다.
-     *
-     * ⚠ 3번 덕분에 "양성"은 참고범위가 "음성"이면 자동으로 Y 가 된다.
-     *   정성 결과를 무조건 N 으로 두면 양성 결과가 정상으로 분류되는데, 그건 위험하다.
-     *
-     * ⚠ 한계 — "≤5", "5 이하", "3.5~5.5" 같은 표기는 2번으로 인식하지 못해 3번(문자열 비교)으로
-     *   내려가고, 그러면 대부분 Y 가 된다. 검사항목별 기준값 마스터가 생기면
-     *   이 문자열 파싱 자체가 없어져야 한다. 그때까지의 임시 규칙이다.
-     */
-    private String decideAbnormalYn(String resultValue, String referenceRange) {
-
-        if (referenceRange == null || referenceRange.isBlank()) {
-            return NO;
+    /** 기존 방식(규칙 없는 검사)인데 details 가 왔으면 거절한다. */
+    private void rejectIfDetailsSentToUnsupportedTest(List<LabResultDetailRequestDto> details, String labItemCode) {
+        if (details != null && !details.isEmpty()) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB099,
+                    "이 검사는 결과항목을 지원하지 않습니다. (검사항목코드=" + labItemCode + ")");
         }
+    }
 
-        Double min = parseRangeBound(referenceRange, 0);
-        Double max = parseRangeBound(referenceRange, 1);
-        Double value = parseNumber(resultValue);
-
-        // 2) 정량 판정 — 범위와 결과값이 모두 숫자로 읽힐 때만 성립한다.
-        if (min != null && max != null && value != null) {
-            return (value < min || value > max) ? YES : NO;
+    /** 기존 방식은 resultValue 가 필수다. 요청 DTO 의 @NotBlank 를 뗐으므로(조건부 필수) 서비스가 확인한다. */
+    private void requireResultValue(String resultValue) {
+        if (resultValue == null || resultValue.isBlank()) {
+            throw new LabImagingBusinessException(LabMessageCode.LAB998, "resultValue 는 필수입니다.");
         }
-
-        // 3) 정성 판정 — 참고범위에 적힌 정상값 중 하나와 같으면 정상.
-        return Arrays.stream(referenceRange.split(","))
-                .map(String::trim)
-                .anyMatch(normal -> normal.equalsIgnoreCase(resultValue.trim()))
-                ? NO : YES;
     }
 
     /**
-     * "3.5-5.5" 에서 index 번째 경계값을 꺼낸다. (0=하한, 1=상한)
-     * 형식이 다르거나 숫자로 읽히지 않으면 null 을 돌려주고, 호출한 쪽이 정성 판정으로 넘어간다.
+     * 요청 details 를 검증하고 저장할 LabResultDetailEntity 목록을 만든다. (2-2 검증 6종)
      *
-     * ⚠ 음수 범위("-5--1")는 이 분리 방식으로 다룰 수 없다. 일반검사 수치에 음수가 없어 두고 간다.
+     * 검증 순서: 개수(1~4) → 중복 → 이 검사의 규칙에 속하는지 → 공통코드(RESULT_ITEM_CD).
+     * 참고범위·단위는 서버가 정한다 — 요청 DTO 에는 그 필드 자체가 없다.
      */
-    private Double parseRangeBound(String referenceRange, int index) {
-        String[] bounds = referenceRange.split("-");
-        if (bounds.length != 2) {
-            return null;
+    private List<LabResultDetailEntity> buildValidatedDetails(List<LabResultDetailRequestDto> details,
+                                                              List<LabResultItemRuleEntity> itemRules,
+                                                              String patientId) {
+        if (details == null || details.isEmpty()) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB102, "이 검사는 결과항목 입력이 필요합니다. (최소 1개)");
         }
-        return parseNumber(bounds[index]);
+        if (details.size() > MAX_DETAILS) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB101, "결과항목 개수가 허용 범위를 벗어났습니다. (입력=" + details.size()
+                            + "개, 허용=1~" + MAX_DETAILS + "개)");
+        }
+
+        Map<String, LabResultItemRuleEntity> ruleByCode = itemRules.stream()
+                .collect(Collectors.toMap(LabResultItemRuleEntity::getResultItemCode, rule -> rule));
+
+        Set<String> seen = new HashSet<>();
+        for (LabResultDetailRequestDto detail : details) {
+            if (!seen.add(detail.getResultItemCode())) {
+                throw new LabImagingBusinessException(
+                        LabMessageCode.LAB100,
+                        "같은 결과항목이 중복 입력되었습니다. (결과항목코드=" + detail.getResultItemCode() + ")");
+            }
+            if (!ruleByCode.containsKey(detail.getResultItemCode())) {
+                throw new LabImagingBusinessException(
+                        LabMessageCode.LAB099,
+                        "이 검사에 속하지 않는 결과항목입니다. (결과항목코드=" + detail.getResultItemCode() + ")");
+            }
+            validateCode(RESULT_ITEM_CD, detail.getResultItemCode(), "결과항목코드");
+        }
+
+        // 환자 성별은 이 결과 1건 등록에 필요한 만큼만 1회 조회한다(접수 목록 조회는 별도로 1회 — getResultItemsByReceptionNo).
+        String genderCode = patientServiceBusinessDelegate.findGenderCode(patientId);
+        List<String> resultItemCodes = details.stream().map(LabResultDetailRequestDto::getResultItemCode).toList();
+        Map<String, String> referenceRangeByCode = resolveReferenceRanges(resultItemCodes, genderCode);
+
+        List<LabResultDetailEntity> entities = new ArrayList<>();
+        for (LabResultDetailRequestDto detail : details) {
+            LabResultItemRuleEntity rule = ruleByCode.get(detail.getResultItemCode());
+            String referenceRange = referenceRangeByCode.get(detail.getResultItemCode());
+            // 참고범위 기준이 없으면(환자 성별 미상 + ALL 행도 없음) 판정하지 않는다 — 2-2.
+            String abnormalYn = (referenceRange == null) ? NO
+                    : AbnormalYnDecider.decide(detail.getResultValue(), referenceRange);
+
+            entities.add(LabResultDetailEntity.builder()
+                    .detailSeq(rule.getItemSeq())
+                    .resultItemCode(detail.getResultItemCode())
+                    .resultValue(detail.getResultValue())
+                    .resultUnit(rule.getDefaultUnit())
+                    .referenceRange(referenceRange)
+                    .abnormalYn(abnormalYn)
+                    .build());
+        }
+        return entities;
     }
 
-    /** 숫자로 읽히면 값을, 아니면 null. 정성값("음성")이 그대로 들어오므로 예외로 다루지 않는다. */
-    private Double parseNumber(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
+    /** 헤더 abnormal_yn — 상세 중 하나라도 이상(Y)이면 Y. (2-2) */
+    private String aggregateAbnormalYn(List<LabResultDetailEntity> details) {
+        return details.stream().anyMatch(d -> YES.equals(d.getAbnormalYn())) ? YES : NO;
+    }
+
+    /**
+     * 결과항목코드별 참고범위를 적용 순서(환자 성별 → ALL → 없음)대로 정리한다. 쿼리 1번으로 끝낸다.
+     * ⚠ 성별을 모르거나(genderCode=null, 즉 03 미상·04 기타·조회 실패) 그 항목에 ALL 행이 없으면
+     *   맵에 키가 없다 — 호출한 쪽은 Map.get() 의 null 을 "판정 보류"로 읽는다(2-2).
+     */
+    private Map<String, String> resolveReferenceRanges(List<String> resultItemCodes, String genderCode) {
+        if (resultItemCodes.isEmpty()) {
+            return Map.of();
         }
-        try {
-            return Double.valueOf(text.trim());
-        } catch (NumberFormatException e) {
-            return null;
+        List<LabReferenceRangeEntity> ranges =
+                labReferenceRangeRepository.findByResultItemCodeInAndUseYn(resultItemCodes, YES);
+
+        Map<String, String> resolved = new HashMap<>();
+        // 1순위: ALL 을 먼저 채우고
+        for (LabReferenceRangeEntity range : ranges) {
+            if (SEX_ALL.equals(range.getSexCode())) {
+                resolved.put(range.getResultItemCode(), range.getReferenceRange());
+            }
         }
+        // 2순위: 환자 성별에 맞는 행이 있으면 덮어쓴다 — 성별 특이값이 ALL 보다 우선한다.
+        if (genderCode != null) {
+            for (LabReferenceRangeEntity range : ranges) {
+                if (genderCode.equals(range.getSexCode())) {
+                    resolved.put(range.getResultItemCode(), range.getReferenceRange());
+                }
+            }
+        }
+        return resolved;
+    }
+
+    /** 저장된 결과를 응답 DTO 로 바꾸며 details 를 채운다. (LabResultMapper 가 details 를 자동 매핑하지 않는 이유는 매퍼 주석 참고) */
+    private LabResultSummaryDto toResponseWithDetails(LabResultEntity labResult) {
+        return labResultMapper.toResponse(labResult).toBuilder()
+                .details(labResultMapper.toDetailResponseList(labResult.getDetails()))
+                .build();
     }
 
     // ------------------------------------------------------------------

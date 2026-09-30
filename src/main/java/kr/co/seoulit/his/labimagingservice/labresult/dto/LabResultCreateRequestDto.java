@@ -1,12 +1,15 @@
 package kr.co.seoulit.his.labimagingservice.labresult.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 /**
  * 일반검사 결과 등록 요청 (수기 입력)
@@ -40,14 +43,14 @@ public class LabResultCreateRequestDto {
     private String labOrderItemId;
 
     /**
-     * ⚠ 숫자로 강제하지 않는다. 정성검사 결과("음성", "Positive")가 같은 자리에 들어온다.
-     *   형식 검증은 "비어 있지 않을 것"까지만 한다. 그 이상은 검사항목별 기준값 마스터가
-     *   있어야 판단할 수 있는데 아직 없다. (LabResultEntity.referenceRange 주석 참고)
+     * ⚠ 6차부터 조건부 필수다(@NotBlank 를 뗐다). 이 검사에 결과항목(상세) 규칙이 있으면
+     *   여기가 아니라 details 로 입력하고 이 필드는 비운다 — 둘 다 비어 있거나 둘 다 채워지면
+     *   서비스가 LAB099/LAB102 로 거절한다(2-2). 규칙이 없는 검사(기존 방식)는 지금까지처럼 필수다.
+     *   숫자로 강제하지 않는 이유는 그대로다 — 정성검사 결과("음성")가 같은 자리에 들어온다.
      */
-    @NotBlank
     @Size(max = 200)
-    @Schema(description = "검사 결과값 (정량 수치 또는 정성 값)", example = "4.2",
-            requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "검사 결과값 (정량 수치 또는 정성 값). 이 검사에 결과항목이 있으면 비워 두고 details 를 쓴다",
+            example = "4.2")
     private String resultValue;
 
     @Size(max = 20)
@@ -63,4 +66,12 @@ public class LabResultCreateRequestDto {
     @Size(max = 36)
     @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 결과 입력자ID", example = "STF00021")
     private String recordedById;
+
+    /**
+     * 결과항목(상세) 목록. 6차 — 이 검사에 LAB_RESULT_ITEM_RULE 규칙이 있으면 필수, 없으면 비워야 한다.
+     * 규칙에 정의된 항목을 전부 채울 필요는 없다(최소 1개, 상한 4개 — LabResultService.MAX_DETAILS).
+     */
+    @Valid
+    @Schema(description = "결과항목(상세) 목록 — 이 검사에 결과항목이 있으면 1~4개 필수, 없으면 비워 둔다")
+    private List<LabResultDetailRequestDto> details;
 }

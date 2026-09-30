@@ -9,6 +9,7 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.messaging.dto.EventEnvelope;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultDetailEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.messaging.dto.LabResultReportedData;
 import kr.co.seoulit.his.labimagingservice.labresult.microbiology.entity.MicrobiologyResultEntity;
@@ -69,14 +70,34 @@ public class LabResultTransmissionService {
     private final PathologyResultRepository pathologyResultRepository;
     private final LabResultTypeResolver labResultTypeResolver;
 
+    /**
+     * ⚠ 6차: 이 결과에 결과항목(상세)이 있으면(details 비어있지 않음) 상위 resultValue/unit/
+     *   referenceRange/abnormalFlag 는 전부 null 로 두고 items[].details[] 만 채운다(2-3).
+     *   결과항목이 없는 검사(기존 방식)는 지금까지와 완전히 같다.
+     */
     public void transmitGeneral(LabResultEntity result) {
+        List<LabResultDetailEntity> details = result.getDetails();
+        boolean detailMode = !details.isEmpty();
         send(result.getLabResultId(), result.getLabOrderItem(), null, result.getConfirmedAt(), b -> b
                 .resultType(LabResultType.GENERAL.name())
-                .resultValue(result.getResultValue())
-                .unit(result.getResultUnit())
-                .referenceRange(result.getReferenceRange())
-                .abnormalFlag(LabResultReportedData.toAbnormalFlag(result.getAbnormalYn()))
+                .resultValue(detailMode ? null : result.getResultValue())
+                .unit(detailMode ? null : result.getResultUnit())
+                .referenceRange(detailMode ? null : result.getReferenceRange())
+                .abnormalFlag(detailMode ? null : LabResultReportedData.toAbnormalFlag(result.getAbnormalYn()))
+                .details(detailMode ? toReportedDetails(details) : null)
                 .confirmedById(result.getConfirmedById()));
+    }
+
+    private static List<LabResultReportedData.Detail> toReportedDetails(List<LabResultDetailEntity> details) {
+        return details.stream()
+                .map(d -> LabResultReportedData.Detail.builder()
+                        .resultItemCode(d.getResultItemCode())
+                        .resultValue(d.getResultValue())
+                        .unit(d.getResultUnit())
+                        .referenceRange(d.getReferenceRange())
+                        .abnormalFlag(LabResultReportedData.toAbnormalFlag(d.getAbnormalYn()))
+                        .build())
+                .toList();
     }
 
     /** @param microItem 접수의 미생물 항목(접수당 1개 제약). 못 찾으면 보내지 않는다. */

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenCreateRequestDto;
+import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenRuleDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.service.SpecimenService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.util.List;
  *   GET    /api/lab-imaging/specimens?judgedYn=             검체 목록 조회 (판정여부 필터, ZP2-79)
  *   GET    /api/lab-imaging/specimens/barcode/{바코드}      검체 바코드 단건 조회 (ZP2-75)
  *   GET    /api/lab-imaging/specimens/{specimenId}          검체 단건 조회
+ *   GET    /api/lab-imaging/specimens/rules?receptionNo=    이 접수에서 허용되는 검체·검체용기 조합 (6차)
  *
  * ⚠ 응답은 항상 ApiResponse<T> 로 감싸고, 성공 메시지는 LabMessageCode 상수를 쓴다.
  *
@@ -65,6 +67,23 @@ public class SpecimenController {
         List<SpecimenSummaryDto> response = specimenService.getSpecimens(judgedYn, receptionNo);
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB019, "검체 목록 조회에 성공했습니다.")
+        );
+    }
+
+    /**
+     * ⚠ 아래 /{specimenId} 보다 위에 둔다. "rules" 가 specimenId 로 잡히는 걸 막는 고정 세그먼트다.
+     *   (barcode 와 같은 이유 — 바로 아래 barcode 주석 참고)
+     */
+    @Operation(summary = "허용 검체·검체용기 조합 조회",
+            description = "접수번호로 그 접수의 검사항목들이 허용하는 (검체종류, 검체용기) 조합을 합쳐서 내려준다. "
+                    + "화면이 검체종류 → 검체용기 연쇄 선택지를 채우는 데 쓴다. "
+                    + "규칙이 없는 검사만 있는 접수는 빈 배열을 반환한다(제한 없이 등록 가능하다는 뜻).")
+    @GetMapping("/rules")
+    public ResponseEntity<ApiResponse<List<SpecimenRuleDto>>> getAllowedSpecimenRules(
+            @RequestParam String receptionNo) {
+        List<SpecimenRuleDto> response = specimenService.getAllowedSpecimenRules(receptionNo);
+        return ResponseEntity.ok(
+                ApiResponse.success(response, LabMessageCode.LAB103, "허용 검체·검체용기 조회에 성공했습니다.")
         );
     }
 

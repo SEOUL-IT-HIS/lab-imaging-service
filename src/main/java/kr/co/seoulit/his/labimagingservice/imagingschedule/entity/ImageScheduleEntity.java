@@ -58,7 +58,7 @@ public class ImageScheduleEntity extends BaseAuditEntity {
     @Column(name = "contraindication_note", length = 500)
     private String contraindicationNote;
 
-    @Column(name = "confirmed_by_id", length = 20, nullable = false)
+    @Column(name = "confirmed_by_id", length = 36, nullable = false)
     private String confirmedById;
 
     @Column(name = "latest_yn", columnDefinition = "CHAR(1)", nullable = false)

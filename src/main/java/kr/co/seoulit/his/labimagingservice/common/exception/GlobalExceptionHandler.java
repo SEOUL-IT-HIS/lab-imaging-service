@@ -33,6 +33,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 로그인 사용자 필요 (LAB067, 5차 Phase 2 / D2).
+     * ⚠ 401 로 내려야 공통 axios 가 "세션 만료"로 보고 로그인 화면으로 보낸다.
+     */
+    @ExceptionHandler(LoginRequiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLoginRequired(LoginRequiredException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.fail(e.getMessageCode(), e.getMessage()));
+    }
+
+    /**
      * @Valid 검증 실패 (요청 본문 DTO).
      *
      * ⚠ 어떤 필드가 왜 걸렸는지를 응답에 담는다.

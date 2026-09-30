@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.imagingschedule.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,6 +28,7 @@ import java.util.List;
 public class ImageScheduleController {
 
     private final ImageScheduleService imageScheduleService;
+    private final ActorIdResolver actorIdResolver;
 
     /**
      * ⚠ 일정이 아니라 "촬영항목"을 기준으로 뽑는다.
@@ -49,9 +53,11 @@ public class ImageScheduleController {
     @Operation(summary = "영상 촬영 일정 등록", description = "접수된 영상검사(IMAGE_RECEPTION)의 일정을 최초 등록한다.")
     @PostMapping
     public ResponseEntity<ApiResponse<ImageScheduleResponseDto>> createImageSchedule(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody ImageScheduleCreateRequestDto request) {
 
-        ImageScheduleResponseDto response = imageScheduleService.createImageSchedule(request);
+        ImageScheduleResponseDto response = imageScheduleService.createImageSchedule(request.toBuilder()
+                        .confirmedById(actorIdResolver.resolve(loginUser, request.getConfirmedById(), "confirmedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB011, "영상 일정이 등록되었습니다.")
@@ -62,9 +68,11 @@ public class ImageScheduleController {
     @PostMapping("/{imageReceptionId}/reschedule")
     public ResponseEntity<ApiResponse<ImageScheduleResponseDto>> createImageReschedule(
             @PathVariable String imageReceptionId,
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody ImageScheduleRescheduleRequestDto request) {
 
-        ImageScheduleResponseDto response = imageScheduleService.createImageReschedule(imageReceptionId, request);
+        ImageScheduleResponseDto response = imageScheduleService.createImageReschedule(imageReceptionId, request.toBuilder()
+                        .confirmedById(actorIdResolver.resolve(loginUser, request.getConfirmedById(), "confirmedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB012, "영상 일정이 재등록되었습니다.")

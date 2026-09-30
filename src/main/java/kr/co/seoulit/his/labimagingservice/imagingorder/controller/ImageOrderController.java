@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
@@ -30,6 +33,7 @@ import java.util.List;
 public class ImageOrderController {
 
     private final ImageOrderService imageOrderService;
+    private final ActorIdResolver actorIdResolver;
     private final ImageWorklistService imageWorklistService;
 
     /**
@@ -112,9 +116,11 @@ public class ImageOrderController {
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
     @PostMapping
     public ResponseEntity<ApiResponse<ImageOrderSummaryDto>> createOrder(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody ImageOrderCreateRequestDto request) {
 
-        ImageOrderSummaryDto response = imageOrderService.createOrder(request);
+        ImageOrderSummaryDto response = imageOrderService.createOrder(request.toBuilder()
+                        .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB005, "영상 접수가 생성되었습니다.")

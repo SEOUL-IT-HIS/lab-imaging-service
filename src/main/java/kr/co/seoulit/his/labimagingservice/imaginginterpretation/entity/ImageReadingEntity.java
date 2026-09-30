@@ -21,7 +21,7 @@ import java.util.UUID;
 
 /**
  * 영상판독 (IMAGE_READING)
- * 대응 유스케이스: UC-IMG-04 영상판독처리 (Jira ZP2-23)
+ * 대응 유스케이스: UC-RD-01 영상판독처리 (Jira ZP2-23)
  *
  * ⚠ 촬영항목(IMAGE_ORDER_ITEM) 1건에 판독 1건이다(1:1). image_order_item_id 에 UNIQUE 가 걸려 있다.
  *   연관관계는 @ManyToOne 으로 선언하지만(방향은 1:N 형태), 실제로는 1:1 로 취급한다.
@@ -54,7 +54,7 @@ public class ImageReadingEntity extends BaseAuditEntity {
     private String readingStatusCode;
 
     /** 참조 식별자다. 직원 서비스에 존재 여부를 묻지 않는다. (LabResultEntity.recordedById 와 같은 취급) */
-    @Column(name = "assigned_to_id", length = 20)
+    @Column(name = "assigned_to_id", length = 36)
     private String assignedToId;
 
     @Column(name = "assigned_at")
@@ -70,7 +70,7 @@ public class ImageReadingEntity extends BaseAuditEntity {
     private String findings;
 
     /** 확정 전에는 비어 있다. 확정과 동시에 signed_at 과 함께 채워진다. */
-    @Column(name = "signed_by_id", length = 20)
+    @Column(name = "signed_by_id", length = 36)
     private String signedById;
 
     @Column(name = "signed_at")

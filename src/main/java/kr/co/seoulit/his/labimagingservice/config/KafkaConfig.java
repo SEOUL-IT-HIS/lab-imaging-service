@@ -59,6 +59,9 @@ public class KafkaConfig {
     @Value("${app.kafka.topic.billing-charge}")
     private String billingChargeTopic;
 
+    @Value("${app.kafka.topic.lab-result-reported}")
+    private String labResultReportedTopic;
+
     /**
      * 우리가 구독하는 토픽.
      *
@@ -89,6 +92,15 @@ public class KafkaConfig {
     @Bean
     public NewTopic examBillingChargeTopic() {
         return TopicBuilder.name(billingChargeTopic).partitions(1).replicas(1).build();
+    }
+
+    /**
+     * 검사결과 보고 이벤트 토픽 lab.lab-result.reported.v1. (LAB → 처방코어·응급·병동, 5차 Phase 6 / D9)
+     * ⚠ 발행 주체인 우리가 만든다(처방코어 요청, 2026-09-29). 이름은 설정값이다.
+     */
+    @Bean
+    public NewTopic labResultReportedTopic() {
+        return TopicBuilder.name(labResultReportedTopic).partitions(1).replicas(1).build();
     }
 
     /**

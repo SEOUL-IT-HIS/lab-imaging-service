@@ -21,7 +21,7 @@ import java.util.List;
  * 처리 시 IMAGE_ORDER + IMAGE_ORDER_ITEM + IMAGE_RECEPTION 을 한 트랜잭션에서 생성한다.
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "영상 오더 접수 요청")
@@ -67,9 +67,8 @@ public class ImageOrderCreateRequestDto {
     @Schema(description = "응급여부 (Y/N)", example = "N", requiredMode = Schema.RequiredMode.REQUIRED)
     private String urgencyYn;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "접수담당자ID", example = "staff-uuid-001", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 접수담당자ID", example = "staff-uuid-001")
     private String receivedById;
 
     @NotEmpty

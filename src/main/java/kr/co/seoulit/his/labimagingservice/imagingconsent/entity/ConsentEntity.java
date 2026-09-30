@@ -60,7 +60,7 @@ public class ConsentEntity extends BaseAuditEntity {
     @Column(name = "signed_by_name", length = 50, nullable = false)
     private String signedByName;
 
-    @Column(name = "witness_id", length = 20, nullable = false)
+    @Column(name = "witness_id", length = 36, nullable = false)
     private String witnessId;
 
     @Column(name = "withdrawn_yn", columnDefinition = "CHAR(1)", nullable = false)
@@ -81,10 +81,19 @@ public class ConsentEntity extends BaseAuditEntity {
     @Column(name = "withdrawn_reason_code", length = 30)
     private String withdrawnReasonCode;
 
+    /** 철회 처리자 (EMPLOYEE.EMP_ID 참조식별자). 철회 전 NULL — 5차 Phase 9-3 추가 */
+    @Column(name = "withdrawn_by_id", length = 36)
+    private String withdrawnById;
+
+    /** 동의 거부 사유 (consent_yn=N 일 때만, 서술형 원본값) — 5차 Phase 9-2 추가 */
+    @Column(name = "refusal_note", length = 500)
+    private String refusalNote;
+
     @Builder
     public ConsentEntity(String patientNo, String patientId, String consentTypeCode,
                          String documentTemplateId, String consentYn, LocalDate consentDt,
-                         String signedByName, String witnessId, String withdrawnYn) {
+                         String signedByName, String witnessId, String withdrawnYn, String refusalNote) {
+        this.refusalNote = refusalNote;
         this.patientNo = patientNo;
         this.patientId = patientId;
         this.consentTypeCode = consentTypeCode;
@@ -114,9 +123,10 @@ public class ConsentEntity extends BaseAuditEntity {
      *   INSERT 해 이력을 남기는 방식과 다르다. withdrawn_* 컬럼이 같은 행에 있는 DDL 구조를
      *   따른 것이고, 이력 보존이 필요하다고 결론나면 이 메서드부터 바뀌어야 한다.
      */
-    public void withdraw(String withdrawnReasonCode, LocalDateTime withdrawnAt) {
+    public void withdraw(String withdrawnReasonCode, LocalDateTime withdrawnAt, String withdrawnById) {
         this.withdrawnYn = "Y";
         this.withdrawnReasonCode = withdrawnReasonCode;
         this.withdrawnAt = withdrawnAt;
+        this.withdrawnById = withdrawnById;
     }
 }

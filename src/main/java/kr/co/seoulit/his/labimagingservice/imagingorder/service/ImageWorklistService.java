@@ -5,7 +5,9 @@ import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ImageFileEn
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ImageFileRepository;
 import kr.co.seoulit.his.labimagingservice.imaginginterpretation.entity.ImageReadingEntity;
 import kr.co.seoulit.his.labimagingservice.imaginginterpretation.repository.ImageReadingRepository;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentFlagDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.repository.ConsentRepository;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.service.ConsentRequirementPolicy;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageWorklistStep;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
@@ -22,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -65,6 +66,8 @@ public class ImageWorklistService {
     private final ImageFileRepository imageFileRepository;
     private final ImageReadingRepository imageReadingRepository;
     private final ImageWorklistMapper imageWorklistMapper;
+    /** 동의 필요 여부 — 업로드(LAB052)와 같은 정책 (5차 Phase 9-1) */
+    private final ConsentRequirementPolicy consentRequirementPolicy;
 
     /** 판독상태: 완료/확정. common.cache.CommonCodeCache 검증 대상인 READING_STATUS_CD 의 "03" 값과 같다.
      *  (ImageReadingService.STATUS_CONFIRMED 와 같은 리터럴 — 두 서비스가 이 값을 공유하는 별도 상수/enum은
@@ -118,8 +121,20 @@ public class ImageWorklistService {
                         item -> item.getImageOrder().getImageOrderId(),
                         Collectors.counting()));
 
-        Set<String> orderIdsWithConsent = Set.copyOf(
-                consentRepository.findOrderIdsWithValidConsent(orderIds));
+        /*
+         * 동의 상태 (5차 Phase 9). 유효 동의·거부·철회를 한 번의 조회 결과로 계산한다.
+         *   - 유효 동의 = 동의함(Y) + 미철회 (D13)
+         *   - 거부 배지 = 유효 동의가 없고 미철회 거부(N) 기록이 있다
+         *   - 철회 배지 = 유효 동의가 없고 철회된 기록이 있다 (D14 — 촬영 후 철회돼도 READING 에 머무는 건을 알린다)
+         */
+        Map<String, List<ConsentFlagDto>> consentFlagsByOrderId = consentRepository.findConsentFlags(orderIds).stream()
+                .collect(Collectors.groupingBy(ConsentFlagDto::imageOrderId));
+
+        // 동의 필요 여부는 오더의 촬영항목코드로 판단한다 — 업로드(LAB052)와 같은 정책 (Phase 9-1)
+        Map<String, List<String>> itemCodesByOrderId = orderItems.stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getImageOrder().getImageOrderId(),
+                        Collectors.mapping(ImageOrderItemEntity::getImageItemCode, Collectors.toList())));
 
         /*
          * ⚠ 영상파일(IMAGE_FILE)은 접수가 아니라 촬영항목에 붙는다. 워크리스트 행은 접수
@@ -172,7 +187,9 @@ public class ImageWorklistService {
                                 .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue(),
                         scheduledItemCountByReceptionId
                                 .getOrDefault(reception.getImageReceptionId(), 0L).intValue(),
-                        orderIdsWithConsent.contains(reception.getImageOrder().getImageOrderId()),
+                        consentStatusOf(
+                                consentFlagsByOrderId.getOrDefault(reception.getImageOrder().getImageOrderId(), List.of()),
+                                itemCodesByOrderId.getOrDefault(reception.getImageOrder().getImageOrderId(), List.of())),
                         fileCountByOrderId
                                 .getOrDefault(reception.getImageOrder().getImageOrderId(), 0L).intValue(),
                         readingCompletedCountByOrderId
@@ -203,23 +220,39 @@ public class ImageWorklistService {
                         (earlier, later) -> earlier.isBefore(later) ? earlier : later));
     }
 
+    /** 오더 1건의 동의 상태 (워크리스트 한 줄). */
+    record ConsentStatus(boolean required, boolean valid, boolean refused, boolean withdrawn) {
+    }
+
+    ConsentStatus consentStatusOf(List<ConsentFlagDto> flags, List<String> itemCodes) {
+        boolean valid = flags.stream().anyMatch(ConsentFlagDto::isValidConsent);
+        return new ConsentStatus(
+                consentRequirementPolicy.isRequiredForItems(itemCodes),
+                valid,
+                !valid && flags.stream().anyMatch(ConsentFlagDto::isActiveRefusal),
+                !valid && flags.stream().anyMatch(ConsentFlagDto::isWithdrawn));
+    }
+
     private ImageWorklistItemDto toItem(ImageReceptionEntity reception,
                                         LocalDateTime scheduledAt,
                                         int imageItemCount,
                                         int scheduledItemCount,
-                                        boolean hasConsent,
+                                        ConsentStatus consent,
                                         int imageFileCount,
                                         int readingCompletedCount) {
 
         ImageWorklistStep nextStep =
-                decideNextStep(imageItemCount, scheduledItemCount, hasConsent, imageFileCount);
+                decideNextStep(imageItemCount, scheduledItemCount, consent.required(), consent.valid(), imageFileCount);
 
         return imageWorklistMapper.toWorklistItem(
                 reception,
                 scheduledAt,
                 imageItemCount,
                 scheduledItemCount,
-                hasConsent ? YES : NO,
+                consent.valid() ? YES : NO,
+                consent.required() ? YES : NO,
+                consent.refused() ? YES : NO,
+                consent.withdrawn() ? YES : NO,
                 imageFileCount,
                 readingCompletedCount,
                 nextStep);
@@ -251,10 +284,11 @@ public class ImageWorklistService {
      *   → (2026-09-11 해결) "빼는" 방식이 아니라 readingCompletedCount 진행도로 표시하는 방식으로
      *     확정했다. decideNextStep 자체는 바뀌지 않는다 — 아래 로직 그대로 READING 에서 멈춘다.
      */
-    private ImageWorklistStep decideNextStep(int imageItemCount,
-                                             int scheduledItemCount,
-                                             boolean hasConsent,
-                                             int imageFileCount) {
+    static ImageWorklistStep decideNextStep(int imageItemCount,
+                                            int scheduledItemCount,
+                                            boolean consentRequired,
+                                            boolean hasConsent,
+                                            int imageFileCount) {
         /*
          * ⚠ "일정이 하나라도 있는가"가 아니라 "항목 전부에 일정이 있는가"로 본다. (2026-09-03)
          *   CT 만 잡고 MRI·초음파를 안 잡았는데 다음 단계로 넘기면, 안 잡힌 촬영이 그대로 묻힌다.
@@ -262,12 +296,19 @@ public class ImageWorklistService {
         if (scheduledItemCount < imageItemCount) {
             return ImageWorklistStep.SCHEDULE;
         }
-        if (!hasConsent) {
+        /*
+         * ⚠ 촬영 파일이 있으면 동의보다 먼저 본다 (5차 Phase 9, D14).
+         *   촬영 후 동의가 철회돼도 이미 촬영된 영상은 판독해야 한다. 예전 순서(동의 → 파일)였다면 철회 순간
+         *   READING 이던 건이 CONSENT 로 되돌아가 판독 대기에서 사라진다. 철회 사실은 consentWithdrawnYn 배지로 알린다.
+         *   (새 촬영은 업로드가 LAB052 로 막는다 — ConsentRequirementPolicy.mayAcquire)
+         */
+        if (imageFileCount > 0) {
+            return ImageWorklistStep.READING;
+        }
+        // 동의가 필요 없는 오더(required-mode=LISTED, 대상 항목 없음)는 CONSENT 단계를 건너뛴다 (Phase 9-1)
+        if (consentRequired && !hasConsent) {
             return ImageWorklistStep.CONSENT;
         }
-        if (imageFileCount == 0) {
-            return ImageWorklistStep.ACQUISITION;
-        }
-        return ImageWorklistStep.READING;
+        return ImageWorklistStep.ACQUISITION;
     }
 }

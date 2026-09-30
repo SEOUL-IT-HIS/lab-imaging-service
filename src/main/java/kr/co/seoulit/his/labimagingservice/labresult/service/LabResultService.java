@@ -1,8 +1,6 @@
 package kr.co.seoulit.his.labimagingservice.labresult.service;
 
-import kr.co.seoulit.his.labimagingservice.billing.messaging.BillingChargeProducer;
-import kr.co.seoulit.his.labimagingservice.billing.messaging.dto.BillingChargeRequestData;
-import kr.co.seoulit.his.labimagingservice.billing.service.FeeCodeResolver;
+import kr.co.seoulit.his.labimagingservice.billing.service.BillingChargeService;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
@@ -19,6 +17,13 @@ import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultUpdateRequestD
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
 import kr.co.seoulit.his.labimagingservice.labresult.mapper.LabResultMapper;
 import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultType;
+import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultTypeResolver;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenAcceptanceEntity;
+import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
+import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenAcceptanceRepository;
+import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenRepository;
+import kr.co.seoulit.his.labimagingservice.labspecimen.service.SpecimenReadiness;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +34,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -70,36 +75,30 @@ public class LabResultService {
     /** 결과상태: 확정(더 이상 수정 불가) */
     private static final String STATUS_CONFIRMED = "02";
 
-    /** 청구 이벤트 수량. 검사 1건 = 청구 1건으로 고정한다. (BillingChargeRequestData 참고) */
-    private static final String BILLING_QUANTITY = "1";
-
     private static final String YES = "Y";
     private static final String NO = "N";
 
     private final LabResultRepository labResultRepository;
     private final LabOrderItemRepository labOrderItemRepository;
     private final LabReceptionRepository labReceptionRepository;
+    /** 결과 등록 전 적합성 판정 확인용 (assertSpecimenReady, 후속조치 #10) */
+    private final SpecimenRepository specimenRepository;
+    private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
     private final LabResultMapper labResultMapper;
     private final CommonCodeCache commonCodeCache;
-    private final FeeCodeResolver feeCodeResolver;
+    /** 청구 요청 — 발신 이력(INTERFACE_SEND_LOG) 경유, 커밋 후 발행 (5차 Phase 5) */
+    private final BillingChargeService billingChargeService;
+    /** 확정 시 결과 전송 — 발신 이력(01) 경유, 커밋 후 발행 (5차 Phase 6) */
+    private final LabResultTransmissionService labResultTransmissionService;
+    /** 검사항목 → 결과유형(일반/미생물/병리). 5차 D1 */
+    private final LabResultTypeResolver labResultTypeResolver;
 
     /**
-     * ⚠ Optional 로 받는다. BillingChargeProducer 는 다른 Kafka 빈들과 같이
-     *   @ConditionalOnProperty(app.kafka.enabled=true) 로 감싸여 있어, false 로 끄면
-     *   빈 자체가 없다. 여기를 그냥 BillingChargeProducer 타입으로 선언하면
-     *   app.kafka.enabled=false 일 때 이 서비스를 만들 수 없어 앱 기동이 막힌다.
-     *   (검증 방법에 명시된 "app.kafka.enabled=false 로도 정상 기동" 요건)
+     * D3 입력자=확정자 금지 스위치. 기본 false(막지 않음 — 시연 환경 1인).
+     * ⚠ 기본값을 @Value 안에 둬서 설정이 없어도 기동된다. (단위 테스트는 생성자로 만들어 false 그대로)
      */
-    private final Optional<BillingChargeProducer> billingChargeProducer;
-
-    /**
-     * 발생서비스코드. 확정값이다 — admin SYSTEM_SOURCE_CD 그룹의 "04=Lab System"
-     * (2026-09-16 admin에 직접 조회해서 정정 — "05"가 아니라 "04"다. 이 값 자체는 codeId(UUID)라
-     *  숫자코드 오기와 무관하게 처음부터 맞았다. 주석만 틀려 있었다).
-     * (application.properties 의 app.billing.source-service-code 참고. 2026-09-09 확정)
-     */
-    @Value("${app.billing.source-service-code}")
-    private String billingSourceServiceCode;
+    @Value("${app.auth.forbid-self-confirm:false}")
+    private boolean forbidSelfConfirm;
 
     // ------------------------------------------------------------------
     // ZP2-100 수기 입력 등록
@@ -139,6 +138,21 @@ public class LabResultService {
             );
         }
 
+        /*
+         * 일반검사 항목에만 이 API 로 결과를 받는다. (5차 D1)
+         * ⚠ 미생물·병리 항목에 일반 결과를 넣으면 한 항목에 결과가 두 곳(LAB_RESULT + MICROBIOLOGY/PATHOLOGY_RESULT)
+         *   생겨 진행도·청구·결과전송이 두 번 셈해진다.
+         */
+        LabResultType type = labResultTypeResolver.resolve(labOrderItem.getLabItemCode());
+        if (type != LabResultType.GENERAL) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB079,
+                    "일반검사 결과로 등록할 수 없는 항목입니다. (검사항목코드=" + labOrderItem.getLabItemCode()
+                            + ", 유형=" + type + ")");
+        }
+
+        assertSpecimenReady(labOrderItem.getLabOrder());
+
         validateCode(RESULT_STATUS_CD, STATUS_RECORDED, "결과상태코드");
 
         LabResultEntity labResult = LabResultEntity.builder()
@@ -154,6 +168,64 @@ public class LabResultService {
         labResult.assignLabOrderItem(labOrderItem);
 
         return labResultMapper.toResponse(labResultRepository.save(labResult));
+    }
+
+    /**
+     * 적합성 판정이 끝난 접수가 있는지 확인한다. 없으면 LAB066. (후속조치 #10, UC-RST-01)
+     *
+     * ⚠ 판정 규칙은 SpecimenReadiness 에 있다. 워크리스트가 RESULT 단계를 표시하는 기준과 같다.
+     *   예전에는 화면(워크리스트)만 이 조건을 보고 서버는 보지 않아서, API 를 직접 부르면
+     *   판정 전 검체로도 결과가 등록됐다.
+     *
+     * ⚠ 결과는 오더(검사항목)에 붙고 검체는 접수에 붙는다. LAB_ORDER : LAB_RECEPTION = 1:N 이라
+     *   처리 대상(ACCEPTED) 접수 중 하나라도 준비됐으면 통과로 본다. (제외된 접수의 검체는 보지 않는다)
+     *
+     * ⚠ 쿼리는 접수 수와 무관하게 2번이다(검체 1 + 판정 1). 워크리스트와 같은 IN 절 방식.
+     */
+    private void assertSpecimenReady(LabOrderEntity labOrder) {
+        List<String> receptionIds = labReceptionRepository
+                .findByLabOrder_LabOrderIdAndReceptionStatusCodeOrderByCreatedAtDesc(
+                        labOrder.getLabOrderId(), ReceptionStatus.ACCEPTED.name())
+                .stream()
+                .map(LabReceptionEntity::getLabReceptionId)
+                .toList();
+
+        if (!receptionIds.isEmpty()) {
+            Map<String, List<SpecimenEntity>> specimensByReceptionId = specimenRepository
+                    .findByLabReception_LabReceptionIdIn(receptionIds).stream()
+                    .collect(Collectors.groupingBy(s -> s.getLabReception().getLabReceptionId()));
+
+            List<String> specimenIds = specimensByReceptionId.values().stream()
+                    .flatMap(List::stream)
+                    .map(SpecimenEntity::getSpecimenId)
+                    .toList();
+
+            Map<String, SpecimenAcceptanceEntity> acceptanceBySpecimenId = specimenIds.isEmpty()
+                    ? Map.of()
+                    : specimenAcceptanceRepository.findBySpecimen_SpecimenIdIn(specimenIds).stream()
+                            .collect(Collectors.toMap(a -> a.getSpecimen().getSpecimenId(), a -> a));
+
+            boolean anyReady = receptionIds.stream().anyMatch(receptionId -> {
+                List<SpecimenEntity> specimens = specimensByReceptionId.getOrDefault(receptionId, List.of());
+                List<SpecimenAcceptanceEntity> acceptances = specimens.stream()
+                        .map(s -> acceptanceBySpecimenId.get(s.getSpecimenId()))
+                        .filter(Objects::nonNull)
+                        .toList();
+                long recollectionCount = acceptances.stream()
+                        .filter(a -> YES.equals(a.getRecollectionRequestedYn()))
+                        .count();
+                return SpecimenReadiness.isReadyForResult(
+                        specimens.size(), acceptances.size(), recollectionCount);
+            });
+
+            if (anyReady) {
+                return;
+            }
+        }
+
+        throw new LabImagingBusinessException(
+                LabMessageCode.LAB066,
+                "적합성 판정이 끝나지 않아 결과를 등록할 수 없습니다. (labOrderId=" + labOrder.getLabOrderId() + ")");
     }
 
     // ------------------------------------------------------------------
@@ -214,93 +286,21 @@ public class LabResultService {
 
         validateCode(RESULT_STATUS_CD, STATUS_CONFIRMED, "결과상태코드");
 
+        // D3 — 입력자 본인 확정 금지. 시연 환경이 1인이라 기본은 꺼 두고 설정으로만 켤 수 있게 한다.
+        if (forbidSelfConfirm && confirmedById != null && confirmedById.equals(labResult.getRecordedById())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB068,
+                    "결과 입력자와 확정자가 같습니다. 다른 담당자가 확정해야 합니다. (labResultId=" + labResultId + ")");
+        }
+
         labResult.confirm(STATUS_CONFIRMED, confirmedById, LocalDateTime.now());
 
-        // 확정 성공 직후, 같은 트랜잭션 커밋 전에 청구 이벤트를 발행한다. (수납 연동)
-        publishBillingCharge(labResult);
+        // 청구 요청 — 같은 트랜잭션에 발신 이력(01)으로 기록되고, 커밋된 뒤에만 발행된다(D8). 실패해도 확정은 성공한다.
+        billingChargeService.requestLabCharge(labResult.getLabOrderItem());
+        // 결과 전송 (결과 1건 = 이벤트 1건, D10). 청구와 같이 이력에 남고 커밋 후 발행된다. 실패해도 확정은 성공한다.
+        labResultTransmissionService.transmitGeneral(labResult);
 
         return labResultMapper.toResponse(labResult);
-    }
-
-    // ------------------------------------------------------------------
-    // 청구 연동 — 검사결과 확정 시 수납으로 청구 이벤트 발행
-    // ------------------------------------------------------------------
-
-    /**
-     * 청구 이벤트를 만들어 발행한다. (BillingChargeProducer, 토픽 exam-billing-charge)
-     *
-     * ⚠ 이 메서드는 절대 예외를 던지지 않는다. 청구 발행은 결과 확정의 부수 효과일 뿐이라,
-     *   여기서 무엇이 실패하든(수가코드 매핑 누락, 접수 조회 실패, Kafka 발행 실패 등)
-     *   confirmLabResult 의 확정 자체는 그대로 성공해야 한다. 그래서 메서드 전체를
-     *   하나의 try-catch 로 감싼다 — Outbox 패턴을 쓰지 않기로 한 것과 같은 결정이다.
-     *   (BillingChargeProducer 클래스 주석 참고)
-     *
-     * ⚠ itemName 은 labItemCode 값을 그대로 쓴다. admin 이 관리하는 표시명(codeName)을
-     *   가져와 채우고 싶었지만, CommonCodeItemResponse/CommonCodeCache 가 codeName 을
-     *   아예 매핑하지 않는다 — "이 서비스는 타 서비스 소유 표시명을 저장하지 않는다"는
-     *   기존 방침(개발표준가이드 14.1, CommonCodeItemResponse 주석 참고) 때문이다.
-     *   그 방침을 이번 작업에서 깨지 않기로 하고, 참고용 필드이니 코드값을 그대로 보낸다.
-     *   실제 표시명이 필요하면 수납 쪽에서 자신의 admin 조회로 채우는 편이 맞다.
-     */
-    private void publishBillingCharge(LabResultEntity labResult) {
-        if (billingChargeProducer.isEmpty()) {
-            // app.kafka.enabled=false — 청구 발행 자체를 시도하지 않는다.
-            return;
-        }
-
-        try {
-            LabOrderItemEntity labOrderItem = labResult.getLabOrderItem();
-            LabOrderEntity labOrder = labOrderItem.getLabOrder();
-
-            String receptionId = findAcceptedReceptionId(labOrder);
-            String feeCode = feeCodeResolver.resolve(labOrderItem.getLabItemCode());
-
-            BillingChargeRequestData data = BillingChargeRequestData.builder()
-                    .patientId(labOrder.getPatientId())
-                    .receptionId(receptionId)
-                    .admissionId(null)
-                    .sourceServiceCode(billingSourceServiceCode)
-                    .sourceRecordId(labOrderItem.getLabOrderItemId())
-                    .feeCode(feeCode)
-                    .itemName(labOrderItem.getLabItemCode())
-                    .quantity(BILLING_QUANTITY)
-                    .amount(null)
-                    .build();
-
-            billingChargeProducer.get().publish(data);
-
-        } catch (Exception e) {
-            // FeeCodeResolver.resolve() 의 IllegalStateException(매핑 누락) 등이 여기로 온다.
-            // BillingChargeProducer.publish() 자체는 이미 내부에서 예외를 삼키므로,
-            // 여기서 잡히는 건 그 전 단계(접수 조회/수가코드 조회)의 실패다.
-            log.error("[KAFKA-OUT] 청구 이벤트 준비 실패. labResultId={}", labResult.getLabResultId(), e);
-        }
-    }
-
-    /**
-     * 오더의 "처리 대상(ACCEPTED)" 접수ID 를 찾는다.
-     *
-     * ⚠ LAB_ORDER : LAB_RECEPTION 은 1:N 이라 이론상 여러 건이 나올 수 있다.
-     *   여러 건이면 가장 최근 접수(createdAt desc 첫 번째)를 쓰고 경고 로그를 남긴다.
-     *   이 프로젝트 범위에서 실제로 여러 건이 생기는 경우는 드물다는 전제다 — 그 전제가
-     *   깨지면(재접수 등으로 ACCEPTED 가 실제로 여러 건 쌓이면) 이 메서드부터 다시 봐야 한다.
-     *
-     * @throws IllegalStateException ACCEPTED 상태 접수가 하나도 없는 경우
-     */
-    private String findAcceptedReceptionId(LabOrderEntity labOrder) {
-        List<LabReceptionEntity> receptions = labReceptionRepository
-                .findByLabOrder_LabOrderIdAndReceptionStatusCodeOrderByCreatedAtDesc(
-                        labOrder.getLabOrderId(), ReceptionStatus.ACCEPTED.name());
-
-        if (receptions.isEmpty()) {
-            throw new IllegalStateException(
-                    "ACCEPTED 상태 접수를 찾을 수 없습니다. labOrderId=" + labOrder.getLabOrderId());
-        }
-        if (receptions.size() > 1) {
-            log.warn("한 오더에 ACCEPTED 상태 접수가 {}건 있습니다. 가장 최근 접수를 사용합니다. labOrderId={}",
-                    receptions.size(), labOrder.getLabOrderId());
-        }
-        return receptions.get(0).getLabReceptionId();
     }
 
     // ------------------------------------------------------------------
@@ -348,6 +348,7 @@ public class LabResultService {
                     return LabResultItemDto.builder()
                             .labOrderItemId(item.getLabOrderItemId())
                             .labItemCode(item.getLabItemCode())
+                            .resultType(labResultTypeResolver.resolve(item.getLabItemCode()).name())
                             // 결과가 없는 항목은 null 로 둔다. 화면이 "미등록"으로 읽는다.
                             .result(result == null ? null : labResultMapper.toResponse(result))
                             .build();

@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  */
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "검체 채취정보 등록 요청")
@@ -44,17 +44,22 @@ public class SpecimenCreateRequestDto {
     @Schema(description = "검체종류", example = "BLOOD", requiredMode = Schema.RequiredMode.REQUIRED)
     private SpecimenType specimenType;
 
-    @NotBlank
+    /**
+     * 환자ID — 선택 입력. (2026-09-29, 후속조치 #2)
+     *
+     * ⚠ 저장되는 값의 기준은 요청이 아니라 "선택한 접수의 오더 환자ID"다.
+     *   보내면 서버가 접수의 환자ID 와 대조해 다르면 LAB051 로 거절하고, 안 보내면 접수의 환자ID 로 채운다.
+     *   예전에는 요청값을 그대로 저장해서, 다른 환자의 ID 를 보내도 검체가 그 환자 것으로 등록됐다.
+     */
     @Size(max = 36)
-    @Schema(description = "환자ID (patient-service 내부 식별자, 참조/검증용)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "환자ID (선택 — 생략 시 접수의 환자ID 사용, 보내면 접수 환자와 대조)", example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f")
     private String patientId;
 
     @NotNull
     @Schema(description = "검체채취일시", example = "2026-07-25T09:30:00")
     private LocalDateTime collectedAt;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "검체채취자ID", example = "STF00021")
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 검체채취자ID", example = "STF00021")
     private String collectedById;
 }

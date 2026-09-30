@@ -66,7 +66,7 @@ public class ImageFileEntity extends BaseAuditEntity {
     private LocalDateTime uploadedAt;
 
     /** 참조 식별자다. 직원 서비스에 존재 여부를 묻지 않는다. (LabResultEntity.recordedById 와 같은 취급) */
-    @Column(name = "uploaded_by_id", length = 20, nullable = false)
+    @Column(name = "uploaded_by_id", length = 36, nullable = false)
     private String uploadedById;
 
     @Builder

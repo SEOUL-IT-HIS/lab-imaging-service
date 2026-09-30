@@ -30,4 +30,16 @@ public class BillingConfig {
     public Map<String, String> feeCodeMapping() {
         return new LinkedHashMap<>();
     }
+
+    /**
+     * 영상항목(IMG_ITEM_CD) → 수가코드. (5차 Phase 7, UC-COM-03 / ZP2-123)
+     * ⚠ 값은 수납팀 매핑표를 받기 전까지 비어 있을 수 있다 — 비어 있으면 영상 청구는 발신 이력에
+     *   "수가코드 매핑 없음"(03)으로 남는다. 매핑값을 지어내지 않는다.
+     * ⚠ 같은 타입(Map<String,String>) 빈이 둘이 되어, 주입받는 쪽(FeeCodeResolver)은 @Qualifier 로 이름을 지정한다.
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "app.billing.image-fee-code-mapping")
+    public Map<String, String> imageFeeCodeMapping() {
+        return new LinkedHashMap<>();
+    }
 }

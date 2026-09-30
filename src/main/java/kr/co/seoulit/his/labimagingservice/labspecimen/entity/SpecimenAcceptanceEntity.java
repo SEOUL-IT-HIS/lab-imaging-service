@@ -34,7 +34,7 @@ public class SpecimenAcceptanceEntity extends BaseAuditEntity {
     @Column(name = "accepted_at", nullable = false )
     private LocalDateTime acceptedAt;
 
-    @Column(name = "accepted_by_id", length = 20, nullable = false )
+    @Column(name = "accepted_by_id", length = 36, nullable = false )
     private String acceptedById;
 
     /**

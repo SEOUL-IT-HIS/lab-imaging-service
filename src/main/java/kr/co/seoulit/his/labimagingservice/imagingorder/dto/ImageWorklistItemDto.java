@@ -89,12 +89,24 @@ public class ImageWorklistItemDto {
     private int scheduledItemCount;
 
     /**
-     * ⚠ "철회되지 않은 동의가 하나라도 있는가"다. 유형별 완비 여부가 아니다.
-     *   어떤 오더에 어떤 유형(조영제/침습)의 동의가 필요한지는 촬영항목별 기준이 있어야 판단할 수 있는데
-     *   그 기준 데이터가 아직 없다. 지금은 "동의를 받기 시작했는가"까지만 본다.
+     * ⚠ "유효한 동의(동의함 + 미철회)가 하나라도 있는가"다. 유형별(조영제/침습) 완비 여부는 보지 않는다.
+     *   동의가 "필요한지"는 촬영항목코드 기준으로 ConsentRequirementPolicy 가 판단한다(consentRequiredYn, 5차 Phase 9-1).
+     *   유형별 요구(이 항목은 조영제 동의, 저 항목은 침습 동의)까지는 설정에 없다 — 과제 목록 참고.
      */
-    @Schema(description = "유효한 동의 존재 여부 (Y/N)", example = "N")
+    @Schema(description = "유효한 동의 존재 여부 (Y/N) — 동의함 + 미철회", example = "N")
     private String consentYn;
+
+    /** 5차 Phase 9-1 — N 이면 이 오더는 CONSENT 단계를 건너뛴다(ConsentRequirementPolicy, 기본 ALL = 항상 Y) */
+    @Schema(description = "동의 필요 여부 (Y/N)", example = "Y")
+    private String consentRequiredYn;
+
+    /** 5차 Phase 9-2 — 유효 동의가 없고 미철회 거부 기록이 있다. 화면 "동의 거부" 배지 */
+    @Schema(description = "동의 거부 상태 (Y/N)", example = "N")
+    private String consentRefusedYn;
+
+    /** 5차 Phase 9-3 / D14 — 유효 동의가 없고 철회 기록이 있다. 촬영 후 철회돼 READING 에 머무는 건을 알린다 */
+    @Schema(description = "동의 철회 상태 (Y/N)", example = "N")
+    private String consentWithdrawnYn;
 
     /**
      * ⚠ 접수 하나가 아니라 그 접수의 오더에 속한 "모든 촬영항목"의 파일 수를 더한 값이다.

@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "영상 촬영 일정 등록 요청")
@@ -61,8 +61,7 @@ public class ImageScheduleRescheduleRequestDto {
     @Schema(description = "금기사항 확인 메모", example = "")
     private String contraindicationNote;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "재조정 확정담당자ID (참조 식별자)", example = "STF00033")
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 재조정 확정담당자ID (참조 식별자)", example = "STF00033")
     private String confirmedById;
 }

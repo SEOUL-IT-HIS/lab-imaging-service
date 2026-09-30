@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.imagingacquisition.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -48,6 +51,7 @@ import java.util.List;
 public class ImageFileController {
 
     private final ImageFileService imageFileService;
+    private final ActorIdResolver actorIdResolver;
 
     @Operation(summary = "영상파일 업로드",
             description = "촬영한 영상파일을 SeaweedFS 에 저장하고 IMAGE_FILE 에 등록한다. "
@@ -58,9 +62,11 @@ public class ImageFileController {
                     content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE)))
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ImageFileSummaryDto>> uploadImageFile(
+            @LoginUser SessionUser loginUser,
             @Valid @ModelAttribute ImageFileUploadRequestDto request) {
 
-        ImageFileSummaryDto response = imageFileService.uploadImageFile(request);
+        ImageFileSummaryDto response = imageFileService.uploadImageFile(request.toBuilder()
+                        .uploadedById(actorIdResolver.resolve(loginUser, request.getUploadedById(), "uploadedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB048, "영상파일이 등록되었습니다.")

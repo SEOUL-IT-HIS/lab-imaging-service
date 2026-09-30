@@ -78,6 +78,14 @@ public class InterfaceReceiveLogEntity extends BaseAuditEntity {
     private String eventId;
 
     /**
+     * 수신 이벤트 유형명 — 봉투 eventType 원문 (LabOrderRequested / ImageOrderRequested …). 5차 Phase 8 추가.
+     * ⚠ order_type_code(LAB/IMG)만으로는 "요청인지 취소인지"(6차 취소 수신) 구분이 안 돼 남긴다.
+     *   REST 수신·기존 검사오더 Kafka 수신 경로는 채우지 않는다(NULL) — 그 경로의 동작을 바꾸지 않기 위해서다.
+     */
+    @Column(name = "event_type_name", length = 50)
+    private String eventTypeName;
+
+    /**
      * ⚠ PK(interfaceReceiveLogId)는 빌더에서 제외한다. @PrePersist 에서 채운다.
      *   errorMessage 도 제외한다. 수신 시점에는 아직 결과를 모르고, markResult 로만 채워야
      *   "결과 없이 오류메시지만 있는" 행이 생기지 않는다.
@@ -85,13 +93,14 @@ public class InterfaceReceiveLogEntity extends BaseAuditEntity {
     @Builder
     public InterfaceReceiveLogEntity(InterfaceOrderType orderTypeCode, String systemCode,
                                      String rawMessage, String resultCode, LocalDateTime receivedAt,
-                                     String eventId) {
+                                     String eventId, String eventTypeName) {
         this.orderTypeCode = orderTypeCode;
         this.systemCode = systemCode;
         this.rawMessage = rawMessage;
         this.resultCode = resultCode;
         this.receivedAt = receivedAt;
         this.eventId = eventId;
+        this.eventTypeName = eventTypeName;
     }
 
     @PrePersist

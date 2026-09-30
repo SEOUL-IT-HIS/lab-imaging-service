@@ -18,7 +18,7 @@ import java.time.LocalDate;
  * 대응 유스케이스: UC-IMG-05 (Jira ZP2-84 동의 여부 등록 및 변경, ZP2-83 필수값·유효성 검증)
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "조영제/침습검사 동의 등록 요청")
@@ -58,8 +58,12 @@ public class ConsentCreateRequestDto {
     @Schema(description = "서명자명 (환자 또는 법정대리인, 이 화면에서 직접 입력)", example = "홍길동", requiredMode = Schema.RequiredMode.REQUIRED)
     private String signedByName;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "확인자ID", example = "STF00021", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 확인자ID", example = "STF00021")
     private String witnessId;
+
+    /** 5차 Phase 9-2. 거부(consentYn=N)일 때만 저장한다 — 동의(Y)에 사유를 보내면 서버가 버린다 */
+    @Size(max = 500)
+    @Schema(description = "동의 거부 사유 (선택, consentYn=N 일 때만 저장)", example = "조영제 부작용 경험으로 거부")
+    private String refusalNote;
 }

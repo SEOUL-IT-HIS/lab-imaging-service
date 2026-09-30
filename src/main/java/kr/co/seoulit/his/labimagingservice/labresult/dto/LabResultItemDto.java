@@ -35,6 +35,15 @@ public class LabResultItemDto {
     @Schema(description = "검사항목코드 (공통코드 TEST_TYPE_CD)", example = "01")
     private String labItemCode;
 
-    @Schema(description = "등록된 결과. 아직 등록 전이면 null")
+    /**
+     * 결과 유형 (GENERAL / MICROBIOLOGY / PATHOLOGY). 5차 D1 — 2026-09-29 추가 필드.
+     * ⚠ 화면이 이 값으로 입력 패널을 고른다(일반/미생물/병리). result 는 GENERAL 일 때만 채워진다.
+     *   미생물·병리 결과는 각자의 API(/microbiology-results, /pathology-results)로 조회한다.
+     */
+    @Schema(description = "결과 유형 GENERAL / MICROBIOLOGY / PATHOLOGY — 화면이 입력 패널을 고르는 기준",
+            example = "GENERAL")
+    private String resultType;
+
+    @Schema(description = "등록된 일반검사 결과. 아직 등록 전이거나 GENERAL 이 아니면 null")
     private LabResultSummaryDto result;
 }

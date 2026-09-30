@@ -31,7 +31,7 @@ import java.time.LocalDateTime;
  *   "다른 필드 값에 따라 필수" 조건을 표현할 수 없어 Service 에서 검증한다.
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "검체 인수 + 적합성 판정 요청")
@@ -41,9 +41,8 @@ public class SpecimenAcceptanceRequestDto {
     @Schema(description = "검체 인수 일시", example = "2026-07-25T09:30:00", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime acceptedAt;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "검체인수자ID", example = "STF00021", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 검체인수자ID", example = "STF00021")
     private String acceptedById;
 
     // enum 필드에는 @Size 가 동작하지 않아 붙이지 않는다. 값 검증은 Jackson 역직렬화가 담당한다.

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 판독 소견 입력/수정 요청 (확정 전에만 허용)
- * 대응 유스케이스: UC-IMG-04 (ZP2-23)
+ * 대응 유스케이스: UC-RD-01 (ZP2-23)
  *
  * ⚠ 길이 제한(@Size)을 두지 않는다. findings 는 CLOB 이라 서술형 소견 전문이 그대로 들어온다.
  *   (LabResultUpdateRequestDto.resultValue 가 VARCHAR2 라 @Size(max=200) 을 두는 것과 다르다)

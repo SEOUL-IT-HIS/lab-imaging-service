@@ -37,6 +37,10 @@ public class InterfaceReceiveLogSummaryDto {
     @Schema(description = "수신 대상 구분 (LAB/IMG)", example = "LAB")
     private InterfaceOrderType orderTypeCode;
 
+    @Schema(description = "수신 이벤트 유형명 (봉투 eventType 원문). 영상오더 Kafka 수신부터 채운다 — 검사오더·REST 수신은 null (5차 Phase 8)",
+            example = "ImageOrderRequested")
+    private String eventTypeName;
+
     @Schema(description = "수신 출처 (공통코드 SYSTEM_SOURCE_CD)", example = "01")
     private String systemCode;
 

@@ -19,15 +19,13 @@ import lombok.NoArgsConstructor;
  *   @NotBlank / @Size 검증과 Swagger 문서화가 다른 API 들과 어긋난다.
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "일반검사 결과 확정 요청")
 public class LabResultConfirmRequestDto {
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "결과 확정자ID", example = "STF00035",
-            requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 결과 확정자ID", example = "STF00035")
     private String confirmedById;
 }

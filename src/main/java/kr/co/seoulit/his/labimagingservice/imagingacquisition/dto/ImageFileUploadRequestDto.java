@@ -44,7 +44,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Getter
 @Setter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "영상파일 업로드 요청 (multipart/form-data)")
@@ -74,9 +74,7 @@ public class ImageFileUploadRequestDto {
             example = "3f7b1a20-6c2e-4e7a-9e2a-8b1f2c3d4e5f", requiredMode = Schema.RequiredMode.REQUIRED)
     private String patientId;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "업로드자ID (참조 식별자)", example = "STF00021",
-            requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 업로드자ID (참조 식별자)", example = "STF00021")
     private String uploadedById;
 }

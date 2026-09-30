@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * 영상판독 응답 (워크리스트/상세 공용)
- * 대응 유스케이스: UC-IMG-04 영상판독처리 (Jira ZP2-23)
+ * 대응 유스케이스: UC-RD-01 영상판독처리 (Jira ZP2-23)
  *
  * ⚠ 워크리스트 행과 상세 화면이 같은 DTO 를 쓴다. 판독은 촬영항목 1건에 1건뿐이라
  *   목록의 한 줄과 상세의 내용이 같은 모양이기 때문이다. (LabResultSummaryDto 와 같은 이유)

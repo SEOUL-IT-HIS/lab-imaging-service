@@ -49,7 +49,7 @@ public class ImageReceptionEntity extends BaseAuditEntity {
     @Column(name = "urgency_yn", columnDefinition = "CHAR(1)", nullable = false)
     private String urgencyYn;
 
-    @Column(name = "received_by_id", length = 20, nullable = false)
+    @Column(name = "received_by_id", length = 36, nullable = false)
     private String receivedById;
 
     @Column(name = "ack_sent_yn", columnDefinition = "CHAR(1)", nullable = false)

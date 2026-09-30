@@ -80,7 +80,7 @@ public final class LabMessageCode {
     public static final String LAB055 = "LAB055"; // 영상 저장소 연결에 실패했습니다. 잠시 후 다시 시도하세요.
     public static final String LAB056 = "LAB056"; // 영상파일 저장에 실패해 업로드가 취소되었습니다.
 
-    // ---- 영상판독처리 (UC-IMG-04, ZP2-23) ----
+    // ---- 영상판독처리 (UC-RD-01, ZP2-23) ----
     public static final String LAB057 = "LAB057"; // 판독이 배정되었습니다.
     public static final String LAB058 = "LAB058"; // 판독 워크리스트 조회에 성공했습니다.
     public static final String LAB059 = "LAB059"; // 판독 소견이 저장되었습니다.
@@ -101,6 +101,48 @@ public final class LabMessageCode {
     public static final String LAB039 = "LAB039"; // 검사 결과가 확정되었습니다.
     public static final String LAB040 = "LAB040"; // 이미 확정된 결과는 수정할 수 없습니다.
     public static final String LAB041 = "LAB041"; // 이미 확정된 결과입니다. (재확정 불가)
+    public static final String LAB066 = "LAB066"; // 적합성 판정이 끝나지 않아 결과를 등록할 수 없습니다. (후속조치 #10)
+
+    // ---- 미생물검사결과 (UC-RST-02, ZP2-14 / 5차 Phase 3) ----
+    public static final String LAB069 = "LAB069"; // 미생물 검사 결과가 등록되었습니다.
+    public static final String LAB070 = "LAB070"; // 미생물 검사 결과 조회에 성공했습니다.
+    public static final String LAB071 = "LAB071"; // 미생물 검사 결과를 찾을 수 없습니다.
+    public static final String LAB072 = "LAB072"; // 미생물 검사 결과가 수정되었습니다.
+    public static final String LAB073 = "LAB073"; // 미생물 검사 결과가 확정되었습니다.
+    public static final String LAB074 = "LAB074"; // 이 접수의 미생물 검사항목이 정확히 1건이 아닙니다. (0건/2건 이상)
+    public static final String LAB075 = "LAB075"; // 이 접수에는 이미 미생물 결과가 등록되어 있습니다.
+    public static final String LAB076 = "LAB076"; // 적합 판정된 검체에만 결과를 등록할 수 있습니다.
+    public static final String LAB077 = "LAB077"; // 배양상태와 맞지 않는 입력입니다. (균종·감수성은 양성일 때만)
+    public static final String LAB078 = "LAB078"; // 같은 항생제가 중복 입력되었습니다.
+    public static final String LAB079 = "LAB079"; // 검사항목의 결과유형이 맞지 않습니다. (일반/미생물/병리)
+
+    // ---- 병리검사결과 (UC-RST-03, ZP2-15 / 5차 Phase 4) ----
+    public static final String LAB080 = "LAB080"; // 병리 검사 결과가 등록되었습니다.
+    public static final String LAB081 = "LAB081"; // 병리 검사 결과 조회에 성공했습니다.
+    public static final String LAB082 = "LAB082"; // 병리 검사 결과를 찾을 수 없습니다.
+    public static final String LAB083 = "LAB083"; // 병리 검사 결과가 수정되었습니다.
+    public static final String LAB084 = "LAB084"; // 병리 검사 결과가 확정되었습니다.
+    public static final String LAB085 = "LAB085"; // 이미 병리 결과가 등록된 검사항목입니다.
+    public static final String LAB086 = "LAB086"; // 첨부 파일이 없습니다.
+    public static final String LAB087 = "LAB087"; // 허용되지 않는 첨부 파일 형식입니다. (jpg/png/pdf)
+
+    // ---- 연계 발신 이력 (UC-COM-03 / UC-RST-06, 5차 Phase 5) ----
+    public static final String LAB088 = "LAB088"; // 발신 이력 조회에 성공했습니다.
+    public static final String LAB089 = "LAB089"; // 발신 이력을 찾을 수 없습니다.
+    public static final String LAB090 = "LAB090"; // 재전송을 요청했습니다.
+    public static final String LAB091 = "LAB091"; // Kafka 가 비활성 상태라 재전송할 수 없습니다.
+    public static final String LAB092 = "LAB092"; // 재전송할 수 없는 건입니다. (이미 완료 / 발행할 원문 없음)
+
+    // ---- 동의 철회 (UC-IMG-05, 5차 Phase 9) ----
+    public static final String LAB093 = "LAB093"; // 동의가 철회되었습니다.
+    public static final String LAB094 = "LAB094"; // 동의 정보를 찾을 수 없습니다.
+    public static final String LAB095 = "LAB095"; // 이미 철회된 동의입니다.
+    public static final String LAB096 = "LAB096"; // 거부 기록은 철회할 수 없습니다.
+    public static final String LAB097 = "LAB097"; // 동의가 철회되었습니다. 이미 촬영된 영상은 그대로 유지됩니다. (D14)
+
+    // ---- 로그인 사용자 연동 (5차 Phase 2, 후속조치 #7) ----
+    public static final String LAB067 = "LAB067"; // 로그인이 필요합니다. (401, 세션 필수 설정일 때만)
+    public static final String LAB068 = "LAB068"; // 결과 입력자와 확정자가 같습니다. (D3, 설정으로 켰을 때만)
 
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.

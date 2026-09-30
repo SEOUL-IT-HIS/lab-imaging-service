@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 판독 담당자 배정 요청
- * 대응 유스케이스: UC-IMG-04 (ZP2-23)
+ * 대응 유스케이스: UC-RD-01 (ZP2-23)
  *
  * ⚠ assignedToId 는 참조 식별자다. 직원 서비스에 존재 여부를 묻지 않는다.
  *   (LabResultCreateRequestDto.recordedById 와 같은 취급)
@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 public class ImageReadingAssignRequestDto {
 
     @NotBlank
-    @Size(max = 20)
+    @Size(max = 36)
     @Schema(description = "배정할 판독의ID", example = "STF00099",
             requiredMode = Schema.RequiredMode.REQUIRED)
     private String assignedToId;

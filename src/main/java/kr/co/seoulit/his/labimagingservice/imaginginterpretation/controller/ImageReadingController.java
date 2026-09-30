@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.imaginginterpretation.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -18,7 +21,7 @@ import java.util.List;
 
 /**
  * 영상판독 API
- * 대응 유스케이스: UC-IMG-04 영상판독처리 (Jira ZP2-23)
+ * 대응 유스케이스: UC-RD-01 영상판독처리 (Jira ZP2-23)
  *
  * 엔드포인트
  *   GET  /api/lab-imaging/image-readings/worklist                     판독 워크리스트 (findOrCreate)
@@ -38,10 +41,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/lab-imaging/image-readings")
 @RequiredArgsConstructor
-@Tag(name = "영상 판독", description = "UC-IMG-04")
+@Tag(name = "영상 판독", description = "UC-RD-01")
 public class ImageReadingController {
 
     private final ImageReadingService imageReadingService;
+    private final ActorIdResolver actorIdResolver;
 
     /**
      * ⚠ /{imageOrderItemId} 보다 위에 둔다. "worklist" 가 고정 세그먼트라 Spring 이 알아서
@@ -114,10 +118,12 @@ public class ImageReadingController {
     @PostMapping("/{imageReadingId}/confirm")
     public ResponseEntity<ApiResponse<ImageReadingSummaryDto>> confirmReading(
             @PathVariable String imageReadingId,
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody ImageReadingConfirmRequestDto request) {
 
         ImageReadingSummaryDto response =
-                imageReadingService.confirmReading(imageReadingId, request.getSignedById());
+                imageReadingService.confirmReading(imageReadingId,
+                        actorIdResolver.resolve(loginUser, request.getSignedById(), "signedById"));
 
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB060, "판독이 확정되었습니다.")

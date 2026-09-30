@@ -62,11 +62,13 @@ public class SpecimenService {
 
         validateCode("SPECIMEN_CONTAINER_CD", request.getSpecimenContainerCode(), "검체용기코드");
 
+        String patientId = resolvePatientId(reception, request.getPatientId());
+
         SpecimenEntity specimen = SpecimenEntity.builder()
                 .specimenBarcode(generateSpecimenBarcode())
                 .specimenContainerCode(request.getSpecimenContainerCode())
                 .specimenTypeCode(request.getSpecimenType())
-                .patientId(request.getPatientId())
+                .patientId(patientId)
                 .collectedAt(request.getCollectedAt())
                 .collectedById(request.getCollectedById())
                 .build();
@@ -75,6 +77,28 @@ public class SpecimenService {
         // 방금 만든 검체라 판정이 있을 수 없다.
         return specimenMapper.toResponse(saved, null);
 
+    }
+
+    /**
+     * 검체에 저장할 환자ID 를 정한다. (후속조치 #2, UC-SPC-03)
+     *
+     * ⚠ 기준은 선택한 접수의 오더 환자ID 다. 요청값은 "대조용"이다.
+     *   - 요청에 없으면 → 접수의 환자ID 로 채운다.
+     *   - 요청에 있는데 다르면 → LAB051 로 거절한다. 다른 환자의 검체가 이 접수에 붙는 걸 막는다.
+     *   영상 업로드(ImageFileService.validateAcquisitionPrerequisites)의 환자 대조와 같은 방식·같은 코드다.
+     */
+    private String resolvePatientId(LabReceptionEntity reception, String requestedPatientId) {
+        String receptionPatientId = reception.getLabOrder().getPatientId();
+
+        if (requestedPatientId == null || requestedPatientId.isBlank()) {
+            return receptionPatientId;
+        }
+        if (!requestedPatientId.equals(receptionPatientId)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB051,
+                    "환자 정보가 일치하지 않습니다. (labReceptionId=" + reception.getLabReceptionId() + ")");
+        }
+        return requestedPatientId;
     }
 
     // ------ 검체 목록 조회 ------

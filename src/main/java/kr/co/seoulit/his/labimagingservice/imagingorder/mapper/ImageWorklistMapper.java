@@ -37,6 +37,9 @@ public interface ImageWorklistMapper {
     @Mapping(target = "imageItemCount", source = "imageItemCount")
     @Mapping(target = "scheduledItemCount", source = "scheduledItemCount")
     @Mapping(target = "consentYn", source = "consentYn")
+    @Mapping(target = "consentRequiredYn", source = "consentRequiredYn")
+    @Mapping(target = "consentRefusedYn", source = "consentRefusedYn")
+    @Mapping(target = "consentWithdrawnYn", source = "consentWithdrawnYn")
     @Mapping(target = "imageFileCount", source = "imageFileCount")
     @Mapping(target = "readingCompletedCount", source = "readingCompletedCount")
     @Mapping(target = "nextStep", source = "nextStep")
@@ -45,6 +48,9 @@ public interface ImageWorklistMapper {
                                         int imageItemCount,
                                         int scheduledItemCount,
                                         String consentYn,
+                                        String consentRequiredYn,
+                                        String consentRefusedYn,
+                                        String consentWithdrawnYn,
                                         int imageFileCount,
                                         int readingCompletedCount,
                                         ImageWorklistStep nextStep);

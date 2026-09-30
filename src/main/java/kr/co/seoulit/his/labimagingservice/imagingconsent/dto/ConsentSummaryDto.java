@@ -50,6 +50,12 @@ public class ConsentSummaryDto {
     @Schema(description = "철회일시 (철회 전이면 null)", example = "2026-07-26T14:00:00")
     private LocalDateTime withdrawnAt;
 
-    @Schema(description = "철회사유코드 (철회 전이면 null)", example = "환자거부")
+    @Schema(description = "철회사유코드 (공통코드 CONSENT_WITHDRAW_CD, 철회 전이면 null)", example = "01")
     private String withdrawnReasonCode;
+
+    @Schema(description = "철회 처리자ID (철회 전이면 null)", example = "STF00021")
+    private String withdrawnById;
+
+    @Schema(description = "동의 거부 사유 (거부 건만)", example = "조영제 부작용 경험으로 거부")
+    private String refusalNote;
 }

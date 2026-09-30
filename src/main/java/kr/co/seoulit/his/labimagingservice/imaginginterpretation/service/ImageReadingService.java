@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 /**
  * 영상판독 서비스
- * 대응 유스케이스: UC-IMG-04 영상판독처리 (Jira ZP2-23)
+ * 대응 유스케이스: UC-RD-01 영상판독처리 (Jira ZP2-23)
  *
  * ── 핵심 설계: findOrCreate
  *   IMAGE_READING 행은 촬영(ZP2-21, imagingacquisition 패키지) 시점에 만들어지지 않는다.

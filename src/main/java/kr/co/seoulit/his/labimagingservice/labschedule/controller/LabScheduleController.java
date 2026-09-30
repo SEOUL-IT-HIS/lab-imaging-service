@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.labschedule.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 검사 일정 관련 API
- * 대응 유스케이스: UC-SPC-02 검사일정관리 (Jira ZP2-XX)
+ * 대응 유스케이스: UC-SPC-02 검사일정관리 (Jira ZP2-11)
  */
 
 @RestController
@@ -26,13 +29,16 @@ import org.springframework.web.bind.annotation.*;
 public class LabScheduleController {
 
     private final LabScheduleService labScheduleService;
+    private final ActorIdResolver actorIdResolver;
 
     @Operation(summary = "검사 일정 등록", description = "접수된 검사(LAB_RECEPTION)의 일정을 최초 등록한다.")
     @PostMapping
     public ResponseEntity<ApiResponse<LabScheduleResponseDto>> createLabSchedule(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabScheduleCreateRequestDto request) {
 
-        LabScheduleResponseDto response = labScheduleService.createLabSchedule(request);
+        LabScheduleResponseDto response = labScheduleService.createLabSchedule(request.toBuilder()
+                        .confirmedById(actorIdResolver.resolve(loginUser, request.getConfirmedById(), "confirmedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB009, "검사 일정이 등록되었습니다.")
@@ -43,9 +49,11 @@ public class LabScheduleController {
     @PostMapping("/{labReceptionId}/reschedule")
     public ResponseEntity<ApiResponse<LabScheduleResponseDto>> createLabReschedule(
             @PathVariable String labReceptionId,
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabScheduleRescheduleRequestDto request) {
 
-        LabScheduleResponseDto response = labScheduleService.createLabReschedule(labReceptionId, request);
+        LabScheduleResponseDto response = labScheduleService.createLabReschedule(labReceptionId, request.toBuilder()
+                        .confirmedById(actorIdResolver.resolve(loginUser, request.getConfirmedById(), "confirmedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB010, "검사 일정이 재등록되었습니다.")

@@ -22,23 +22,20 @@ public enum ImageWorklistStep {
     /** 일정 등록 대기 — 최종 일정이 없다. */
     SCHEDULE,
 
-    /** 동의 대기 — 일정은 잡혔는데 유효한 동의가 없다. */
+    /**
+     * 동의 대기 — 일정은 잡혔는데 유효한 동의(동의함 + 미철회)가 없다.
+     * ⚠ 동의가 필요 없는 오더(ConsentRequirementPolicy, required-mode=LISTED)는 이 단계를 건너뛴다. (5차 Phase 9-1)
+     */
     CONSENT,
 
-    /**
-     * 촬영 대기 — 동의까지 끝났다.
-     *
-     * ⚠ 지금은 사실상 마지막 단계다. 촬영(IMAGE_FILE) 등록 기능이 없어 이 상태에서 더 나아가지 않는다.
-     *   ZP2-21 이 붙으면 파일 등록 여부를 보고 READING 으로 넘어간다.
-     */
+    /** 촬영 대기 — 동의까지 끝났다(또는 동의가 필요 없다). 영상파일이 올라오면 READING 으로 넘어간다. (ZP2-21) */
     ACQUISITION,
 
     /**
-     * 판독 대기 — 촬영까지 끝났다.
+     * 판독 대기 — 영상파일이 하나라도 있다. (ZP2-23)
      *
-     * ⚠ 아직 계산되지 않는다. 값만 선언해 둔다. (2026-09-02 결정)
-     *   IMAGE_READING 테이블은 생겼지만 판독 화면 설계가 없어 엔티티를 만들지 않았다.
-     *   ZP2-23 착수 시 ImageWorklistService.decideNextStep 에 조건을 추가한다.
+     * ⚠ 마지막 단계다. 판독이 확정돼도 여기 머물고 진행도는 readingCompletedCount 칩으로 보여준다.
+     * ⚠ 촬영 후 동의가 철회돼도 CONSENT 로 되돌아가지 않는다(D14) — consentWithdrawnYn 배지로 알린다.
      */
     READING
 }

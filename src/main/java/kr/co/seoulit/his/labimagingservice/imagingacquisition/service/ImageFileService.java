@@ -1,36 +1,30 @@
 package kr.co.seoulit.his.labimagingservice.imagingacquisition.service;
 
+import kr.co.seoulit.his.labimagingservice.billing.service.BillingChargeService;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.storage.SeaweedFsFileStorage;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ImageFileSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.dto.ImageFileUploadRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.entity.ImageFileEntity;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.mapper.ImageFileMapper;
 import kr.co.seoulit.his.labimagingservice.imagingacquisition.repository.ImageFileRepository;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.repository.ConsentRepository;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.service.ConsentRequirementPolicy;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.imagingschedule.repository.ImageScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * 촬영 수행 / 영상파일(IMAGE_FILE) 등록 서비스
@@ -74,18 +68,21 @@ public class ImageFileService {
     private final ImageReceptionRepository imageReceptionRepository;
     private final ImageScheduleRepository imageScheduleRepository;
     private final ConsentRepository consentRepository;
+    /** 동의 필요 여부 판정 — 워크리스트와 공유 (5차 Phase 9-1) */
+    private final ConsentRequirementPolicy consentRequirementPolicy;
     private final ImageFileMapper imageFileMapper;
 
     /**
-     * ⚠ 공용 RestTemplate(RestTemplateConfig.restTemplate)이 아니라 SeaweedFS 전용 Bean 을 쓴다.
-     *   대용량 멀티파트 전송이라 읽기 타임아웃 요구사항이 patient/admin 호출과 다르다.
-     *   (RestTemplateConfig.seaweedFsRestTemplate 주석 참고)
+     * SeaweedFS 업로드·다운로드·정리. (5차 Phase 4 — 병리 첨부와 같이 쓰려고 이 클래스에서 추출했다)
+     * ⚠ 전용 RestTemplate(seaweedFsRestTemplate)을 쓰는 이유 등은 SeaweedFsFileStorage 주석 참고.
      */
-    @Qualifier("seaweedFsRestTemplate")
-    private final RestTemplate seaweedFsRestTemplate;
+    private final SeaweedFsFileStorage seaweedFsFileStorage;
 
-    @Value("${app.seaweedfs.filer-url}")
-    private String filerUrl;
+    /** 첫 촬영 완료 시 청구 요청 — 발신 이력 경유, 커밋 후 발행 (5차 Phase 7, D11) */
+    private final BillingChargeService billingChargeService;
+
+    /** 영상파일 저장 경로 접두어. 추출 전 "/image-files/" 그대로 (5차 조건: 영상 업로드 동작 불변) */
+    private static final String IMAGE_FILE_PATH_PREFIX = "/image-files/";
 
     /**
      * 영상파일을 업로드하고 SeaweedFS + DB에 저장한다.
@@ -125,7 +122,15 @@ public class ImageFileService {
             ImageFileEntity saved = imageFileRepository.save(imageFile);
 
             // ZP2-106: 촬영 완료로 상태 전이. 재촬영으로 두 번째 파일이 올라와도 멱등이라 안전하다.
+            // ⚠ 전이 "전" 상태를 먼저 본다 — 청구는 첫 촬영 완료 때만 한다(D11). markAcquired 는 멱등이라 뒤에선 구분이 안 된다.
+            boolean firstAcquisition = !OrderItemStatus.ACQUIRED.name().equals(orderItem.getItemStatusCode());
             orderItem.markAcquired();
+
+            // 영상 청구 (5차 Phase 7). 같은 트랜잭션에 발신 이력으로 남고 커밋 후 발행된다.
+            // 예외를 던지지 않으므로 아래 catch(고아 파일 정리)로 빠지지 않는다 — 청구 실패가 업로드를 취소하지 않는다.
+            if (firstAcquisition) {
+                billingChargeService.requestImageCharge(orderItem, request.getImageReceptionId());
+            }
 
             return imageFileMapper.toResponse(saved);
 
@@ -216,7 +221,8 @@ public class ImageFileService {
         boolean hasConsent = !consentRepository
                 .findOrderIdsWithValidConsent(List.of(imageOrderId))
                 .isEmpty();
-        if (!hasConsent) {
+        // 동의 필요 여부는 ConsentRequirementPolicy 한 곳에서 판단한다 — 워크리스트와 같은 규칙 (5차 Phase 9-1)
+        if (!consentRequirementPolicy.mayAcquire(orderItem.getImageItemCode(), hasConsent)) {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB052,
                     "동의가 등록되지 않았습니다. 촬영 전 동의를 먼저 등록하세요. (imageOrderId=" + imageOrderId + ")");
@@ -282,65 +288,22 @@ public class ImageFileService {
      * @return 확정된 storage_key (이후 IMAGE_FILE.storage_key 로 저장된다)
      */
     private String uploadToSeaweedFs(String imageOrderItemId, MultipartFile file) {
-
-        String storageKey = "/image-files/" + imageOrderItemId + "/"
-                + UUID.randomUUID() + "_" + file.getOriginalFilename();
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", file.getResource());
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
-
-        try {
-            seaweedFsRestTemplate.postForEntity(filerUrl + storageKey, entity, String.class);
-        } catch (RestClientException e) {
-            // ⚠ 여기서는 정리할 것이 없다. 업로드 자체가 실패했으니 IMAGE_FILE 도, SeaweedFS 에
-            //   남는 파일도 없다. (ZP2-112 "SeaweedFS 업로드 자체 실패 → 파일 저장 시도 안 함")
-            throw new LabImagingBusinessException(
-                    LabMessageCode.LAB055,
-                    "영상 저장소 연결에 실패했습니다. SeaweedFS 가 실행 중인지 확인하세요. (filerUrl="
-                            + filerUrl + ")",
-                    e);
-        }
-        return storageKey;
+        // 5차 Phase 4: 실제 업로드는 SeaweedFsFileStorage 로 옮겼다. 경로·메시지(LAB055)는 추출 전과 같다.
+        return seaweedFsFileStorage.upload(IMAGE_FILE_PATH_PREFIX, imageOrderItemId, file);
     }
 
     /**
-     * SeaweedFS 에서 파일을 내려받는다. (다운로드 API 전용)
-     *
-     * ⚠ 전체를 메모리에 올린다(byte[]). 지금 화이트리스트(DICOM/JPEG/PNG/TIFF 단일 파일)
-     *   규모에서는 문제가 되지 않는다. 대용량 스트리밍 응답이 필요해지면
-     *   Resource/InputStreamResource 로 바꿔 컨트롤러가 직접 스트리밍하도록 바꿔야 한다.
+     * SeaweedFS 에서 파일을 내려받는다. (다운로드 API 전용 — SeaweedFsFileStorage.download 위임)
      */
     private byte[] downloadFromSeaweedFs(String storageKey) {
-        try {
-            return seaweedFsRestTemplate.getForObject(filerUrl + storageKey, byte[].class);
-        } catch (RestClientException e) {
-            throw new LabImagingBusinessException(
-                    LabMessageCode.LAB055,
-                    "영상 저장소 연결에 실패했습니다. SeaweedFS 가 실행 중인지 확인하세요. (storageKey="
-                            + storageKey + ")",
-                    e);
-        }
+        return seaweedFsFileStorage.download(storageKey);
     }
 
     /**
      * DB 저장 실패 후 SeaweedFS 에 남은 고아 파일을 정리한다. (ZP2-112)
-     *
-     * ⚠ 이 메서드는 절대 예외를 던지지 않는다. 정리가 실패해도 로그만 남기고 삼킨다.
-     *   호출한 쪽(uploadImageFile)이 "원래 왜 실패했는지"를 사용자에게 알려야 하는데,
-     *   여기서 예외가 올라가면 그 원인이 "정리 실패"로 뒤바뀌어 버린다.
-     *   대신 로그에는 반드시 남긴다 — 그래야 운영자가 SeaweedFS 에 남은 고아 파일을
-     *   수동으로 찾아 지울 단서가 생긴다.
+     * ⚠ 예외를 던지지 않는다(SeaweedFsFileStorage.deleteQuietly). 원래 실패 원인을 가리면 안 된다.
      */
     private void cleanupOrphanFile(String storageKey) {
-        try {
-            seaweedFsRestTemplate.delete(filerUrl + storageKey);
-        } catch (RestClientException cleanupException) {
-            log.warn("SeaweedFS 고아 파일 정리 실패 — 수동 삭제가 필요합니다. (storageKey={})",
-                    storageKey, cleanupException);
-        }
+        seaweedFsFileStorage.deleteQuietly(storageKey);
     }
 }

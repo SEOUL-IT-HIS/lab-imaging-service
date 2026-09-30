@@ -76,14 +76,14 @@ public class LabResultEntity extends BaseAuditEntity {
     @Column(name = "recorded_at", nullable = false)
     private LocalDateTime recordedAt;
 
-    @Column(name = "recorded_by_id", length = 20, nullable = false)
+    @Column(name = "recorded_by_id", length = 36, nullable = false)
     private String recordedById;
 
     /** 확정 전에는 비어 있다. 확정과 동시에 둘 다 채워진다. */
     @Column(name = "confirmed_at")
     private LocalDateTime confirmedAt;
 
-    @Column(name = "confirmed_by_id", length = 20)
+    @Column(name = "confirmed_by_id", length = 36)
     private String confirmedById;
 
     @Builder

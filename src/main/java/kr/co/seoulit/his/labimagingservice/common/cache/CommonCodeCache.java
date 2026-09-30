@@ -74,6 +74,14 @@ public class CommonCodeCache {
     }
 
     /** 캐시에 적재된 그룹 수 — 기동 확인/모니터링용 */
+    /**
+     * 그룹의 코드값 목록 (읽기 전용). 캐시에 없거나 적재 전이면 빈 집합. (5차 Phase 5)
+     * ⚠ 검증용이 아니다(검증은 isValid). "설정된 매핑에 빠진 코드가 있는가" 같은 점검용으로만 쓴다.
+     */
+    public Set<String> getCodes(String groupCode) {
+        return codesByGroup.getOrDefault(groupCode, Set.of());
+    }
+
     public int getCachedGroupCount() {
         return codesByGroup.size();
     }

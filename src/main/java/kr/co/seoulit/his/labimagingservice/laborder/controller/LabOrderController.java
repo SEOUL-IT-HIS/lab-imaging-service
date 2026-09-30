@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.laborder.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
@@ -30,6 +33,7 @@ import java.util.List;
 public class LabOrderController {
 
     private final LabOrderService labOrderService;
+    private final ActorIdResolver actorIdResolver;
     private final LabWorklistService labWorklistService;
 
     @Operation(summary = "검사 워크리스트 조회",
@@ -46,9 +50,12 @@ public class LabOrderController {
     }
 
     /**
-     * 제외/복구는 같은 리소스(접수의 "제외 상태")를 만들고 지우는 것이라
-     * 하나의 경로에 POST / DELETE 로 짝을 맞춘다.
-     * 별도 동사 경로(/exclude, /restore)를 두는 것보다 짝 관계가 드러난다.
+     * 제외 POST /receptions/{no}/exclusion, 복구 POST /receptions/{no}/restoration.
+     *
+     * ⚠ 복구는 예전에 DELETE /exclusion 이었다("제외 상태"를 지운다는 짝). 5차 Phase 10-3(후속 #12)에서
+     *   영상(ImageOrderController)과 같은 POST /restoration 으로 통일하고 DELETE 는 제거했다.
+     *   같은 화면 패턴(ReceptionExcludeDialog)을 쓰는 두 워크리스트가 서로 다른 HTTP 규칙을 쓰면
+     *   한쪽만 고치는 실수가 생긴다. 호출처는 labimaging 프론트(laborder/api.ts) 하나뿐이라 함께 바꿨다.
      */
     @Operation(summary = "접수 워크리스트 제외",
             description = "처리하지 않기로 판단한 접수를 워크리스트에서 뺀다. 사유는 필수이며, 삭제가 아니라 복구 가능한 상태 변경이다.")
@@ -66,7 +73,7 @@ public class LabOrderController {
 
     @Operation(summary = "접수 워크리스트 복구",
             description = "제외된 접수를 워크리스트로 되돌린다. 제외 상태가 아니면 LAB026 으로 실패한다.")
-    @DeleteMapping("/receptions/{receptionNo}/exclusion")
+    @PostMapping("/receptions/{receptionNo}/restoration")
     public ResponseEntity<ApiResponse<Void>> restoreReception(@PathVariable String receptionNo) {
 
         labOrderService.restoreReception(receptionNo);
@@ -102,9 +109,11 @@ public class LabOrderController {
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
     @PostMapping
     public ResponseEntity<ApiResponse<LabOrderSummaryDto>> createOrder(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabOrderCreateRequestDto request) {
 
-        LabOrderSummaryDto response = labOrderService.createOrder(request);
+        LabOrderSummaryDto response = labOrderService.createOrder(request.toBuilder()
+                        .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB001, "검사 접수가 생성되었습니다.")

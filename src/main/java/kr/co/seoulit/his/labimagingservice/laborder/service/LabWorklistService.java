@@ -9,6 +9,11 @@ import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.entity.LabResultEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.microbiology.entity.MicrobiologyResultEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.microbiology.repository.MicrobiologyResultRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.pathology.entity.PathologyResultEntity;
+import kr.co.seoulit.his.labimagingservice.labresult.pathology.repository.PathologyResultRepository;
+import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultTypeResolver;
 import kr.co.seoulit.his.labimagingservice.labresult.repository.LabResultRepository;
 import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
 import kr.co.seoulit.his.labimagingservice.labschedule.repository.LabScheduleRepository;
@@ -16,6 +21,7 @@ import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenAcceptance
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenAcceptanceRepository;
 import kr.co.seoulit.his.labimagingservice.labspecimen.repository.SpecimenRepository;
+import kr.co.seoulit.his.labimagingservice.labspecimen.service.SpecimenReadiness;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +63,9 @@ public class LabWorklistService {
     private final SpecimenAcceptanceRepository specimenAcceptanceRepository;
     private final LabOrderItemRepository labOrderItemRepository;
     private final LabResultRepository labResultRepository;
+    private final MicrobiologyResultRepository microbiologyResultRepository;
+    private final PathologyResultRepository pathologyResultRepository;
+    private final LabResultTypeResolver labResultTypeResolver;
     private final LabWorklistMapper labWorklistMapper;
 
     /**
@@ -93,6 +102,10 @@ public class LabWorklistService {
 
         Map<String, List<LabOrderItemEntity>> itemsByOrderId = findOrderItems(orderIds);
         Map<String, LabResultEntity> resultByItemId = findResults(itemsByOrderId);
+        // 미생물 결과는 검체(→접수) 단위다. 접수당 1건 제약(5차)이라 접수ID 로 모은다. (N+1 방지 IN 절 1회)
+        Map<String, String> microStatusByReceptionId = findMicrobiologyStatus(receptionIds);
+        // 병리 결과는 검사항목 1:1 이라 항목ID 로 모은다. (N+1 방지 IN 절 1회)
+        Map<String, String> pathologyStatusByItemId = findPathologyStatus(itemsByOrderId);
 
         return receptions.stream()
                 .map(reception -> toItem(
@@ -101,8 +114,40 @@ public class LabWorklistService {
                         specimensByReceptionId.getOrDefault(reception.getLabReceptionId(), List.of()),
                         acceptanceBySpecimenId,
                         itemsByOrderId.getOrDefault(reception.getLabOrder().getLabOrderId(), List.of()),
-                        resultByItemId))
+                        resultByItemId,
+                        microStatusByReceptionId.get(reception.getLabReceptionId()),
+                        pathologyStatusByItemId))
                 .toList();
+    }
+
+    /**
+     * 접수ID → 미생물 결과의 결과상태(01/02). 결과가 없는 접수는 키가 없다. (5차 Phase 3)
+     *
+     * ⚠ 미생물 결과는 검체에 붙는다. "접수당 미생물 항목 1개 + 결과 1건" 제약이라, 접수의 미생물 항목에
+     *   이 상태를 그대로 대응시킨다(toItem 참고).
+     */
+    /** 검사항목ID → 병리 결과의 결과상태. 결과가 없는 항목은 키가 없다. (5차 Phase 4) */
+    private Map<String, String> findPathologyStatus(Map<String, List<LabOrderItemEntity>> itemsByOrderId) {
+        List<String> itemIds = itemsByOrderId.values().stream()
+                .flatMap(List::stream)
+                .map(LabOrderItemEntity::getLabOrderItemId)
+                .toList();
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        return pathologyResultRepository.findByItemIds(itemIds).stream()
+                .collect(Collectors.toMap(
+                        r -> r.getLabOrderItem().getLabOrderItemId(),
+                        PathologyResultEntity::getResultStatusCode));
+    }
+
+    private Map<String, String> findMicrobiologyStatus(List<String> receptionIds) {
+        return microbiologyResultRepository.findByReceptionIds(receptionIds).stream()
+                .collect(Collectors.toMap(
+                        r -> r.getSpecimen().getLabReception().getLabReceptionId(),
+                        MicrobiologyResultEntity::getResultStatusCode,
+                        // 제약상 한 건이어야 하지만, 제약 전 데이터가 있어도 목록 조회가 터지지 않게 한다.
+                        (a, b) -> a));
     }
 
     /** 접수상태 필터에 따라 조회 메서드를 고른다. 값이 없거나 모르는 값이면 전체. */
@@ -179,7 +224,9 @@ public class LabWorklistService {
                                       List<SpecimenEntity> specimens,
                                       Map<String, SpecimenAcceptanceEntity> acceptanceBySpecimenId,
                                       List<LabOrderItemEntity> orderItems,
-                                      Map<String, LabResultEntity> resultByItemId) {
+                                      Map<String, LabResultEntity> resultByItemId,
+                                      String microbiologyStatus,
+                                      Map<String, String> pathologyStatusByItemId) {
 
         int specimenCount = specimens.size();
 
@@ -197,29 +244,36 @@ public class LabWorklistService {
         /*
          * 재채취 요청이 아직 "해소되지 않았는지" 판단한다.
          *
-         * 재채취를 요청했다는 기록은 판정 이력에 그대로 남으므로, 요청이 있었다는 사실만으로는
-         * 다시 채취해야 하는지 알 수 없다. 이미 다시 채취했을 수도 있기 때문이다.
-         * 그래서 "검체 수가 재채취 요청 수보다 많으면 이미 다시 받은 것"으로 본다.
-         *
-         *   검체 1건 → 부적합·재채취요청 1건            : 1 <= 1  → 아직 재채취 안 함
-         *   재채취해서 검체 2건, 재채취요청은 그대로 1건 : 2 <= 1 아님 → 해소됨
-         *
-         * ⚠ recollectionCount > 0 조건을 빠뜨리면 안 된다.
-         *   검체도 판정도 없는 접수(0건)가 0 <= 0 으로 성립해, 재채취를 요청한 적도 없는데
-         *   목록 전체에 "재채취" 표시가 붙는다.
+         * ⚠ 계산 규칙은 SpecimenReadiness 한 곳에 있다. 결과 등록 API(LabResultService.createLabResult)가
+         *   같은 규칙으로 서버 검증을 하므로(LAB066), 여기서 조건을 따로 적으면 둘이 어긋난다.
+         *   (2026-09-29 후속조치 #10 — 이전에는 이 계산이 여기에만 있었다)
          */
-        boolean recollectionPending = recollectionCount > 0 && specimenCount <= recollectionCount;
+        boolean recollectionPending = SpecimenReadiness.isRecollectionPending(specimenCount, recollectionCount);
 
         int labItemCount = orderItems.size();
 
-        List<LabResultEntity> results = orderItems.stream()
-                .map(item -> resultByItemId.get(item.getLabOrderItemId()))
-                .filter(result -> result != null)
+        /*
+         * 항목마다 "결과상태"를 모은다. 결과가 들어 있는 테이블이 항목 유형마다 다르다. (5차 D1)
+         *   GENERAL      → LAB_RESULT (항목 1:1)
+         *   MICROBIOLOGY → MICROBIOLOGY_RESULT (접수당 1건 → 접수의 미생물 항목에 대응)
+         *   PATHOLOGY    → PATHOLOGY_RESULT (항목 1:1)
+         * 그래야 진행도 n/m 의 m(항목 수)과 n(결과 수)이 같은 단위로 맞는다.
+         */
+        List<String> resultStatuses = orderItems.stream()
+                .map(item -> switch (labResultTypeResolver.resolve(item.getLabItemCode())) {
+                    case GENERAL -> {
+                        LabResultEntity general = resultByItemId.get(item.getLabOrderItemId());
+                        yield general == null ? null : general.getResultStatusCode();
+                    }
+                    case MICROBIOLOGY -> microbiologyStatus;
+                    case PATHOLOGY -> pathologyStatusByItemId.get(item.getLabOrderItemId());
+                })
+                .filter(status -> status != null)
                 .toList();
 
-        int resultCount = results.size();
-        int confirmedResultCount = (int) results.stream()
-                .filter(result -> RESULT_STATUS_CONFIRMED.equals(result.getResultStatusCode()))
+        int resultCount = resultStatuses.size();
+        int confirmedResultCount = (int) resultStatuses.stream()
+                .filter(RESULT_STATUS_CONFIRMED::equals)
                 .count();
 
         WorklistStep nextStep = decideNextStep(
@@ -243,9 +297,8 @@ public class LabWorklistService {
      * ⚠ 이 순서가 곧 업무 순서다. 미판정 검체가 남아 있으면 재채취보다 판정이 먼저다.
      *   (판정을 해봐야 재채취가 필요한지 알 수 있다)
      *
-     * ⚠ RESULT 는 아직 결과 등록 기능이 없어 화면에서 비활성으로만 표시된다.
-     *   그래도 값을 내려주는 이유는, 판정까지 끝낸 건이 목록에 계속 남는 이유를
-     *   담당자가 알 수 있어야 하기 때문이다.
+     * ⚠ RESULT 가 마지막 단계다. 결과가 확정돼도 여기 머물고, 진행도는 항목 유형별(일반·미생물·병리)
+     *   확정 수로 보여준다(5차 Phase 3). 판정까지 끝낸 건이 목록에 남는 이유를 담당자가 알 수 있다.
      */
     private WorklistStep decideNextStep(LocalDateTime scheduledAt,
                                         int specimenCount,

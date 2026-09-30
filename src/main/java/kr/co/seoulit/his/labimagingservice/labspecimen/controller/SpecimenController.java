@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.labspecimen.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,12 +38,15 @@ import java.util.List;
 public class SpecimenController {
 
     private final SpecimenService specimenService;
+    private final ActorIdResolver actorIdResolver;
 
     @PostMapping
     public ResponseEntity<ApiResponse<SpecimenSummaryDto>> createSpecimen(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody SpecimenCreateRequestDto request) {
 
-        SpecimenSummaryDto response = specimenService.createSpecimen(request);
+        SpecimenSummaryDto response = specimenService.createSpecimen(request.toBuilder()
+                        .collectedById(actorIdResolver.resolve(loginUser, request.getCollectedById(), "collectedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB018, "검체 정보가 등록되었습니다.")

@@ -1,5 +1,8 @@
 package kr.co.seoulit.his.labimagingservice.labspecimen.controller;
 
+import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -47,6 +50,7 @@ import org.springframework.web.bind.annotation.*;
 public class SpecimenAcceptanceController {
 
     private final SpecimenAcceptanceService specimenAcceptanceService;
+    private final ActorIdResolver actorIdResolver;
 
     @Operation(summary = "검체 인수 및 적합성 판정",
             description = "검체를 인수하면서 적합/부적합을 함께 판정한다. "
@@ -54,9 +58,11 @@ public class SpecimenAcceptanceController {
     @PostMapping("/{specimenId}/acceptance")
     public ResponseEntity<ApiResponse<SpecimenAcceptanceSummaryDto>> acceptSpecimen(
             @PathVariable String specimenId,
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody SpecimenAcceptanceRequestDto request) {
 
-        SpecimenAcceptanceSummaryDto response = specimenAcceptanceService.acceptSpecimen(specimenId, request);
+        SpecimenAcceptanceSummaryDto response = specimenAcceptanceService.acceptSpecimen(specimenId, request.toBuilder()
+                        .acceptedById(actorIdResolver.resolve(loginUser, request.getAcceptedById(), "acceptedById")).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB021, "검체 인수 및 적합성 판정이 등록되었습니다.")

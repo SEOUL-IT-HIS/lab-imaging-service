@@ -4,7 +4,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.common.session.SessionUser;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
+import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
+import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultConfirmRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.labresult.dto.LabResultItemDto;
@@ -45,6 +48,7 @@ import java.util.List;
 public class LabResultController {
 
     private final LabResultService labResultService;
+    private final ActorIdResolver actorIdResolver;
 
     @Operation(summary = "일반검사 결과 등록",
             description = "검사항목(LAB_ORDER_ITEM) 1건에 대한 결과를 수기로 등록한다. "
@@ -52,9 +56,13 @@ public class LabResultController {
                     + "비정상 여부(abnormalYn)와 결과상태(01=등록)는 요청값이 아니라 서버가 정한다.")
     @PostMapping
     public ResponseEntity<ApiResponse<LabResultSummaryDto>> createLabResult(
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabResultCreateRequestDto request) {
 
-        LabResultSummaryDto response = labResultService.createLabResult(request);
+        // 입력자는 로그인 사용자다(요청값 무시). 세션이 없을 때의 처리는 ActorIdResolver(D2) 참고.
+        String recordedById = actorIdResolver.resolve(loginUser, request.getRecordedById(), "recordedById");
+        LabResultSummaryDto response = labResultService.createLabResult(
+                request.toBuilder().recordedById(recordedById).build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB033, "검사 결과가 등록되었습니다.")
@@ -83,10 +91,12 @@ public class LabResultController {
     @PostMapping("/{labResultId}/confirm")
     public ResponseEntity<ApiResponse<LabResultSummaryDto>> confirmLabResult(
             @PathVariable String labResultId,
+            @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabResultConfirmRequestDto request) {
 
-        LabResultSummaryDto response =
-                labResultService.confirmLabResult(labResultId, request.getConfirmedById());
+        // 확정자는 로그인 사용자다(UC-RST-05). 세션이 없을 때의 처리는 ActorIdResolver(D2) 참고.
+        String confirmedById = actorIdResolver.resolve(loginUser, request.getConfirmedById(), "confirmedById");
+        LabResultSummaryDto response = labResultService.confirmLabResult(labResultId, confirmedById);
 
         return ResponseEntity.ok(
                 ApiResponse.success(response, LabMessageCode.LAB039, "검사 결과가 확정되었습니다.")

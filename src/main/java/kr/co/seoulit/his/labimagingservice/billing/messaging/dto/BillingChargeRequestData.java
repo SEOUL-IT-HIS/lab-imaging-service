@@ -1,5 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.billing.messaging.dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -10,11 +12,15 @@ import java.math.BigDecimal;
  * 토픽: exam-billing-charge
  *
  * ⚠ EventEnvelope 로 감싸지 않는다. OPD 연동(EventEnvelope 봉투)과 달리 수납 쪽 계약은
- *   봉투 구조가 아니라 이 DTO 하나가 그대로 최상위 JSON 이다. (수납팀과 확정된 스펙)
- *   BillingChargeProducer 에서 이 객체를 바로 kafkaTemplate.send 에 넘긴다.
+ *   봉투 구조가 아니라 이 DTO 하나가 그대로 최상위 JSON 이다. (수납팀과 확정된 스펙 — 5차에도 바꾸지 않는다)
+ *
+ * ⚠ 5차 Phase 5: 발행이 발신 이력(INTERFACE_SEND_LOG) 경유로 바뀌었다. 이력에 JSON 원문을 저장했다가
+ *   발행·재발행 때 이 클래스로 되살려 보낸다(InterfaceSendPublisher). 그래서 역직렬화용 @JsonCreator 생성자를
+ *   두었다. 코드에서는 여전히 builder 로만 만든다. JSON 모양·필드는 그대로다.
+ *   ⚠ 기본 생성자(private) + final 필드 방식은 쓰지 않는다 — Jackson 3 은 그 경우 필드를 채우지 않아,
+ *     재발행 메시지가 전부 null 로 나간다(2026-09-29 단위 테스트로 확인). 생성자 인자 이름을 @JsonProperty 로 박아 둔다.
  */
 @Getter
-@Builder
 public class BillingChargeRequestData {
 
     /** 환자ID (patient-service 내부 식별자) */
@@ -43,4 +49,26 @@ public class BillingChargeRequestData {
 
     /** ⚠ 항상 null. 금액 산정은 이번 연동 범위가 아니다 — 필드는 계약대로 유지만 한다. */
     private final BigDecimal amount;
+
+    @Builder
+    @JsonCreator
+    private BillingChargeRequestData(@JsonProperty("patientId") String patientId,
+                                     @JsonProperty("receptionId") String receptionId,
+                                     @JsonProperty("admissionId") String admissionId,
+                                     @JsonProperty("sourceServiceCode") String sourceServiceCode,
+                                     @JsonProperty("sourceRecordId") String sourceRecordId,
+                                     @JsonProperty("feeCode") String feeCode,
+                                     @JsonProperty("itemName") String itemName,
+                                     @JsonProperty("quantity") String quantity,
+                                     @JsonProperty("amount") BigDecimal amount) {
+        this.patientId = patientId;
+        this.receptionId = receptionId;
+        this.admissionId = admissionId;
+        this.sourceServiceCode = sourceServiceCode;
+        this.sourceRecordId = sourceRecordId;
+        this.feeCode = feeCode;
+        this.itemName = itemName;
+        this.quantity = quantity;
+        this.amount = amount;
+    }
 }

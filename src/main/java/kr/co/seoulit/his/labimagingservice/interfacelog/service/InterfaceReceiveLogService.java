@@ -68,6 +68,16 @@ public class InterfaceReceiveLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public String logReceived(InterfaceOrderType orderType, String systemCode,
                               String rawMessage, String eventId) {
+        return logReceived(orderType, systemCode, rawMessage, eventId, null);
+    }
+
+    /**
+     * Kafka 수신용 — 봉투의 eventType 원문까지 남긴다. (5차 Phase 8 영상오더 수신부터 사용)
+     * ⚠ 기존 검사오더 Consumer 는 위 메서드를 그대로 쓴다(동작 불변 조건). 그 경로는 event_type_name 이 NULL 이다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String logReceived(InterfaceOrderType orderType, String systemCode,
+                              String rawMessage, String eventId, String eventTypeName) {
         InterfaceReceiveLogEntity log = InterfaceReceiveLogEntity.builder()
                 .orderTypeCode(orderType)
                 .systemCode(systemCode)
@@ -75,6 +85,7 @@ public class InterfaceReceiveLogService {
                 .resultCode(RESULT_RECEIVED)
                 .receivedAt(LocalDateTime.now())
                 .eventId(eventId)
+                .eventTypeName(eventTypeName)
                 .build();
 
         return interfaceReceiveLogRepository.save(log).getInterfaceReceiveLogId();

@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
  *   (검체 등록 SpecimenCreateRequestDto 가 labReceptionId 를 본문에 담는 것과 같은 이유)
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 @Schema(description = "일반검사 결과 등록 요청")
@@ -60,9 +60,7 @@ public class LabResultCreateRequestDto {
             example = "3.5-5.5")
     private String referenceRange;
 
-    @NotBlank
-    @Size(max = 20)
-    @Schema(description = "결과 입력자ID", example = "STF00021",
-            requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(max = 36)
+    @Schema(description = "(로그인 세션이 있으면 무시 — 서버가 로그인 사용자 empId 로 기록) 결과 입력자ID", example = "STF00021")
     private String recordedById;
 }

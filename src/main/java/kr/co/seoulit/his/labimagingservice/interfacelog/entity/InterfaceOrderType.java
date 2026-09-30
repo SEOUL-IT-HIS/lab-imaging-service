@@ -14,6 +14,9 @@ public enum InterfaceOrderType {
     /** 검사 오더 수신 */
     LAB,
 
-    /** 영상 오더 수신 — 아직 수신 경로가 없다. 검사부터 먼저 붙였다. */
+    /**
+     * 영상 오더 수신 — 5차 Phase 8 ImageOrderRequestedConsumer (app.kafka.image-order.enabled=true 일 때만 동작).
+     * ⚠ 작업 문서·DDL 주석에는 "IMAGE"로 적혀 있지만 값은 기존 그대로 IMG 다. 이름을 바꾸면 DB 저장값이 달라진다.
+     */
     IMG
 }

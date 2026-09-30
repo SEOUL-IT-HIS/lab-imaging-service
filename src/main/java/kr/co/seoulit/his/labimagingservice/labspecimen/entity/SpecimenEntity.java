@@ -62,7 +62,7 @@ public class SpecimenEntity extends BaseAuditEntity {
     @Column(name = "collected_at", nullable = false )
     private LocalDateTime collectedAt;
 
-    @Column(name = "collected_by_id", length = 20, nullable = false )
+    @Column(name = "collected_by_id", length = 36, nullable = false )
     private String collectedById;
 
     @OneToOne(mappedBy = "specimen", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

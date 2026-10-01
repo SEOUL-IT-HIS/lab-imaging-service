@@ -71,6 +71,7 @@ class LabResultTransmissionServiceTest {
         when(result.getLabResultId()).thenReturn("res-1");
         when(result.getLabOrderItem()).thenReturn(general);
         when(result.getResultValue()).thenReturn("5.2");
+        when(result.getReferenceRange()).thenReturn("3.5-6.0");
         when(result.getAbnormalYn()).thenReturn("N");
         when(result.getResultStatusCode()).thenReturn("02");
         when(result.getConfirmedById()).thenReturn("emp-2");
@@ -127,7 +128,7 @@ class LabResultTransmissionServiceTest {
         assertThat(item.getItemCode()).isEqualTo("01");
         assertThat(item.getItemName()).isNull();          // 스냅샷 금지 — 수신측이 공통코드로 풀어 쓴다
         assertThat(item.getResultValue()).isEqualTo("5.2");
-        assertThat(item.getAbnormalFlag()).isEqualTo("N"); // abnormal_yn N → N
+        assertThat(item.getAbnormalFlag()).isEqualTo("N"); // 5.2 는 3.5-6.0 범위 안 → 정상
         assertThat(item.getResultType()).isEqualTo("GENERAL");
         assertThat(item.getDetails()).isNull(); // 결과항목 없는 검사(기존 방식) — details 는 안 채운다
     }
@@ -137,7 +138,7 @@ class LabResultTransmissionServiceTest {
     @SuppressWarnings("unchecked")
     void detailModeFillsDetailsAndNullsHeader() {
         LabResultDetailEntity d1 = detail(1, "H01", "4.5", "10^6/uL", "4.0-5.5", "N");
-        LabResultDetailEntity d2 = detail(2, "H02", "13.9", "g/dL", "13.0-17.0", "Y");
+        LabResultDetailEntity d2 = detail(2, "H02", "20.0", "g/dL", "13.0-17.0", "Y");
         when(result.getDetails()).thenReturn(List.of(d1, d2));
 
         service.transmitGeneral(result);
@@ -163,7 +164,8 @@ class LabResultTransmissionServiceTest {
 
         LabResultReportedData.Detail reportedD2 = item.getDetails().get(1);
         assertThat(reportedD2.getResultItemCode()).isEqualTo("H02");
-        assertThat(reportedD2.getAbnormalFlag()).isEqualTo("A"); // abnormal_yn Y → A
+        assertThat(reportedD2.getResultValue()).isEqualTo("20.0");
+        assertThat(reportedD2.getAbnormalFlag()).isEqualTo("H"); // 20.0 은 13.0-17.0 상한 초과 → 높음
     }
 
     private static LabResultDetailEntity detail(int seq, String resultItemCode, String resultValue,
@@ -179,11 +181,14 @@ class LabResultTransmissionServiceTest {
     }
 
     @Test
-    @DisplayName("abnormalFlag 변환: Y→A, N→N, 없음→null")
-    void abnormalFlag() {
-        assertThat(LabResultReportedData.toAbnormalFlag("Y")).isEqualTo("A");
-        assertThat(LabResultReportedData.toAbnormalFlag("N")).isEqualTo("N");
-        assertThat(LabResultReportedData.toAbnormalFlag(null)).isNull();
+    @DisplayName("abnormalFlag 방향 판정(2026-09-30 처방코어 회신 반영): N=정상/H=상한초과/L=하한미만/null=판정불가")
+    void abnormalFlagDirection() {
+        assertThat(AbnormalYnDecider.decideDirection("5.0", "3.5-6.0")).isEqualTo("N");
+        assertThat(AbnormalYnDecider.decideDirection("7.0", "3.5-6.0")).isEqualTo("H");
+        assertThat(AbnormalYnDecider.decideDirection("2.0", "3.5-6.0")).isEqualTo("L");
+        assertThat(AbnormalYnDecider.decideDirection("4.2", null)).isNull();       // 참고범위 없음 → 판정 불가
+        assertThat(AbnormalYnDecider.decideDirection("양성", "음성,정상")).isNull(); // 정성 비정상 — 방향 없음
+        assertThat(AbnormalYnDecider.decideDirection("정상", "음성,정상")).isEqualTo("N"); // 정성 정상
     }
 
     @Test

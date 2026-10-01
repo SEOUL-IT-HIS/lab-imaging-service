@@ -46,12 +46,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class LabOrderRequestedConsumer {
 
-    /**
-     * 수신 출처 (공통코드 SYSTEM_SOURCE_CD). 처방코어는 외래 채널이다.
-     * ⚠ admin 실제 등록값은 "OP"가 아니라 "01"이다 (LabOrderIntakeService 상수와 짝 — 2026-09-16 정정).
-     */
-    private static final String SYSTEM_CODE_OUTPATIENT = "01";
-
     private final LabOrderIntakeService labOrderIntakeService;
     private final LabOrderResultedProducer labOrderResultedProducer;
     private final InterfaceReceiveLogService interfaceReceiveLogService;
@@ -98,7 +92,8 @@ public class LabOrderRequestedConsumer {
         String logId = previous
                 .map(InterfaceReceiveLogEntity::getInterfaceReceiveLogId)
                 .orElseGet(() -> interfaceReceiveLogService.logReceived(
-                        InterfaceOrderType.LAB, SYSTEM_CODE_OUTPATIENT, toRawMessage(data), eventId));
+                        InterfaceOrderType.LAB, LabOrderIntakeService.resolveSystemCode(data.getEncounterType()),
+                        toRawMessage(data), eventId));
 
         try {
             // ③ 코어 계약 → REST 수신 계약으로 변환한 뒤 기존 경로에 태운다.
@@ -205,6 +200,9 @@ public class LabOrderRequestedConsumer {
         return new LabOrderIntakeRequestDto(
                 data.getPrescriptionId(),
                 data.getEncounterId(),
+                data.getEncounterType(),
+                data.getAdmissionId(),
+                data.getUrgencyYn(),
                 data.getPatientId(),
                 data.getDoctorId(),
                 items);

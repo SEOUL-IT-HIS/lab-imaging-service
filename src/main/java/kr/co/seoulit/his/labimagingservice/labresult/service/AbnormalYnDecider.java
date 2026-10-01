@@ -39,6 +39,47 @@ public final class AbnormalYnDecider {
     private AbnormalYnDecider() {
     }
 
+    /**
+     * 판정 방향(고/저)까지 포함해 반환한다. 처방코어 결과 이벤트 abnormalFlag 전용(2026-09-30 회신 반영).
+     * N=정상 / H=상한 초과 / L=하한 미만 / null=판정 불가(참고범위가 없거나, 정성 비교라 방향을 알 수 없음).
+     *
+     * ⚠ decide()와 별개 메서드다. decide()는 내부 저장용 이상여부(Y/N, LAB_RESULT.abnormal_yn 등)이고
+     *   이건 외부 전송 전용 표현이다 — 내부 컬럼의 의미(decide() 주석 참고)는 이 메서드로 바뀌지 않는다.
+     *   정성 판정이 "비정상"으로 나와도 고/저 개념이 없어 null 로 돌려준다(판정 불가와 같은 취급).
+     */
+    public static String decideDirection(String resultValue, String referenceRange) {
+        if (referenceRange == null || referenceRange.isBlank()) {
+            return null;
+        }
+
+        Double min = parseRangeBound(referenceRange, 0);
+        Double max = parseRangeBound(referenceRange, 1);
+        Double value = parseNumber(resultValue);
+
+        if (min != null && max != null && value != null) {
+            if (value < min) {
+                return "L";
+            }
+            if (value > max) {
+                return "H";
+            }
+            return "N";
+        }
+
+        // ⚠ 정성 비교로 내려오기 전에 resultValue 를 확인한다 — 결과값이 없으면(null/blank)
+        //   비교할 대상 자체가 없다. 여기서 거르지 않으면 바로 아래 trim() 에서 NPE 가 나고,
+        //   호출 지점이 결과 확정 트랜잭션이라(LabResultTransmissionService.transmitGeneral)
+        //   확정 자체가 롤백된다(2026-10-01 마무리 점검, T1).
+        if (resultValue == null || resultValue.isBlank()) {
+            return null;
+        }
+
+        boolean normal = Arrays.stream(referenceRange.split(","))
+                .map(String::trim)
+                .anyMatch(normalValue -> normalValue.equalsIgnoreCase(resultValue.trim()));
+        return normal ? "N" : null;
+    }
+
     public static String decide(String resultValue, String referenceRange) {
 
         if (referenceRange == null || referenceRange.isBlank()) {

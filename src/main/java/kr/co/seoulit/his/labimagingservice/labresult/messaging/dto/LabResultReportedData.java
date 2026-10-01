@@ -24,6 +24,11 @@ import java.util.List;
  * ⚠ 6차: 결과항목(상세)이 있는 검사는 items[].details[] 가 채워지고, 그 항목의 상위
  *   resultValue/unit/referenceRange/abnormalFlag 는 전부 null 이다(2-3). 기존 방식(결과항목 없는 검사)과
  *   미생물·병리 이벤트는 이 변경으로 한 글자도 달라지지 않는다 — details 가 비어 있으면 지금까지와 같다.
+ *
+ * ⚠ abnormalFlag 계약 변경(2026-09-30, 처방코어 회신 반영): N=정상 / H=상한 초과 / L=하한 미만 /
+ *   null=판정 불가(참고범위 없음 또는 정성 비교라 방향을 알 수 없음). 예전 "A=이상" 한 글자 표현은
+ *   더 이상 쓰지 않는다 — 값은 AbnormalYnDecider.decideDirection 이 계산한다(내부 저장용 Y/N 이상여부와는
+ *   별개다). 실제 운영 반영 시점은 처방코어가 신형식(H/L/details) 대응 배포를 마친 뒤로 맞춘다(배포 순서 협의).
  */
 @Getter
 @Builder
@@ -71,7 +76,7 @@ public class LabResultReportedData {
         private final String resultValue;
         private final String unit;
         private final String referenceRange;
-        /** 판정: N=정상 / A=이상. 결과 입력에 H/L 구분이 없어 두 값만 쓴다. 미생물·병리·결과항목 방식은 null */
+        /** 판정: N=정상 / H=상한 초과 / L=하한 미만 / null=판정 불가. 미생물·병리·결과항목 방식은 null */
         private final String abnormalFlag;
         /** 결과항목(상세) 방식일 때만 채워진다(6차). 그 외에는 빈 리스트/null — 클래스 주석 참고 */
         private final List<Detail> details;
@@ -112,15 +117,7 @@ public class LabResultReportedData {
         private final String resultValue;
         private final String unit;
         private final String referenceRange;
-        /** 판정: N=정상 / A=이상 */
+        /** 판정: N=정상 / H=상한 초과 / L=하한 미만 / null=판정 불가 */
         private final String abnormalFlag;
-    }
-
-    /** LAB_RESULT.abnormal_yn(Y/N) → abnormalFlag(A/N). 값이 없으면 null */
-    public static String toAbnormalFlag(String abnormalYn) {
-        if ("Y".equals(abnormalYn)) {
-            return "A";
-        }
-        return "N".equals(abnormalYn) ? "N" : null;
     }
 }

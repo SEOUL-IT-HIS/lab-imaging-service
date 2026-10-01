@@ -22,8 +22,9 @@ import java.util.List;
  *   하나로 합치면 코어 계약이 바뀔 때마다 검사 도메인과 프론트 수동 등록 폼까지 같이 흔들린다.
  *   수신 계약이 바뀌어도 이 파일 하나만 고치면 되도록 경계를 둔 것이다.
  *
- * ⚠ 두 DTO 사이의 변환은 LabOrderIntakeService.toCreateRequest 가 담당한다.
- *   코어에 없는 값(systemCode / treatTypeCode / urgencyYn / receivedById)을 어디서 채우는지도 거기 있다.
+ * ⚠ 두 DTO 사이의 변환은 LabOrderIntakeService.toCreateRequest 가 담당한다. systemCode/treatTypeCode
+ *   는 encounterType 에서, urgencyYn 은 이 DTO 의 urgencyYn 에서 매핑해 채운다(2026-10-01) —
+ *   코어가 아예 안 보내는 receivedById 만 고정값("SYSTEM")으로 채운다.
  *
  * ⚠ Kafka 로 바뀌어도 이 DTO 는 그대로 쓴다. 메시지 본문 모양이 같기 때문이다.
  *   바뀌는 것은 이걸 받는 입구(Controller → Consumer)뿐이다.
@@ -45,6 +46,30 @@ public class LabOrderIntakeRequestDto {
     @Schema(description = "진료건ID — 저장하지 않고 수신 원문에만 남긴다",
             example = "9c8b7a6f-1234-4e5f-9a0b-1c2d3e4f5a6b")
     private String encounterId;
+
+    /**
+     * 진료 채널 — OPD(외래)/ER(응급)/IP(입원). 2026-10-01, 병동 처방 연동 확인 과정에서 추가.
+     * ⚠ 없거나 모르는 값이면 OPD 로 간주한다(LabOrderIntakeService.resolveSystemCode 참고) —
+     *   코어가 이 필드를 아직 안 보내는 과도기에도 지금까지와 똑같이 외래로 동작해야 한다.
+     */
+    @Size(max = 10)
+    @Schema(description = "진료 채널 (OPD=외래 / ER=응급 / IP=입원). 없으면 외래(OPD)로 간주한다",
+            example = "IP")
+    private String encounterType;
+
+    /**
+     * 입원ID — encounterType=IP 일 때만 의미 있다. encounterId 와 같은 취급이다
+     * (저장 컬럼 없음, 수신 원문에만 남김 — 입원 건 조회·필터링이 실제로 필요해지면 별도 컬럼 추가 검토).
+     */
+    @Size(max = 36)
+    @Schema(description = "입원ID — 입원(IP) 채널일 때만 의미 있다. 저장하지 않고 수신 원문에만 남긴다",
+            example = "a1b2c3d4-0000-0000-0000-000000000000")
+    private String admissionId;
+
+    /** 응급 여부 (Y/N). ⚠ 코어 payload 에 이 개념이 없던 시절의 기본값은 N 이다. 없으면 N 으로 간주한다. */
+    @Size(max = 1)
+    @Schema(description = "응급 여부 (Y/N). 없으면 N 으로 간주한다", example = "N")
+    private String urgencyYn;
 
     @NotBlank
     @Size(max = 36)

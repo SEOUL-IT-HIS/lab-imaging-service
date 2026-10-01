@@ -74,6 +74,10 @@ public class LabResultTransmissionService {
      * ⚠ 6차: 이 결과에 결과항목(상세)이 있으면(details 비어있지 않음) 상위 resultValue/unit/
      *   referenceRange/abnormalFlag 는 전부 null 로 두고 items[].details[] 만 채운다(2-3).
      *   결과항목이 없는 검사(기존 방식)는 지금까지와 완전히 같다.
+     *
+     * ⚠ abnormalFlag 는 저장된 abnormal_yn(Y/N)을 그대로 옮기지 않는다. 처방코어가 고/저 방향을
+     *   요구해(2026-09-30 회신) resultValue·referenceRange로 AbnormalYnDecider.decideDirection 을
+     *   다시 계산한다 — 내부 저장용 이상여부(Y/N)와 외부 전송용 표현(N/H/L/null)은 의미가 다르다.
      */
     public void transmitGeneral(LabResultEntity result) {
         List<LabResultDetailEntity> details = result.getDetails();
@@ -83,7 +87,8 @@ public class LabResultTransmissionService {
                 .resultValue(detailMode ? null : result.getResultValue())
                 .unit(detailMode ? null : result.getResultUnit())
                 .referenceRange(detailMode ? null : result.getReferenceRange())
-                .abnormalFlag(detailMode ? null : LabResultReportedData.toAbnormalFlag(result.getAbnormalYn()))
+                .abnormalFlag(detailMode ? null
+                        : AbnormalYnDecider.decideDirection(result.getResultValue(), result.getReferenceRange()))
                 .details(detailMode ? toReportedDetails(details) : null)
                 .confirmedById(result.getConfirmedById()));
     }
@@ -95,7 +100,7 @@ public class LabResultTransmissionService {
                         .resultValue(d.getResultValue())
                         .unit(d.getResultUnit())
                         .referenceRange(d.getReferenceRange())
-                        .abnormalFlag(LabResultReportedData.toAbnormalFlag(d.getAbnormalYn()))
+                        .abnormalFlag(AbnormalYnDecider.decideDirection(d.getResultValue(), d.getReferenceRange()))
                         .build())
                 .toList();
     }

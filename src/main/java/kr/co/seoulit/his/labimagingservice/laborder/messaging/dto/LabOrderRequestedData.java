@@ -30,6 +30,18 @@ public class LabOrderRequestedData {
     /** 진료건ID. 저장할 컬럼이 없어 수신 원문(raw_message)에만 남는다. */
     private String encounterId;
 
+    /**
+     * 진료 채널 — OPD(외래)/ER(응급)/IP(입원). 2026-10-01 추가.
+     * ⚠ 없거나 모르는 값이면 OPD 로 간주한다(LabOrderIntakeService.resolveSystemCode 참고).
+     */
+    private String encounterType;
+
+    /** 입원ID. encounterId 와 같은 취급 — 저장할 컬럼이 없어 수신 원문에만 남는다. */
+    private String admissionId;
+
+    /** 응급 여부 (Y/N). 없으면 N 으로 간주한다. */
+    private String urgencyYn;
+
     private String patientId;
 
     /** 처방의ID */

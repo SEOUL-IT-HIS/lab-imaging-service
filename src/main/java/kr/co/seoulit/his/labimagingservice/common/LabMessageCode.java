@@ -148,6 +148,9 @@ public final class LabMessageCode {
     public static final String LAB102 = "LAB102"; // 결과항목이 필요한 검사입니다. 결과항목을 입력하세요.
     public static final String LAB103 = "LAB103"; // 허용 검체·검체용기 조회에 성공했습니다.
 
+    // ---- 검사항목 카탈로그 검색 (처방코어 요청, 2026-10-02) ----
+    public static final String LAB104 = "LAB104"; // 검사항목 카탈로그 조회에 성공했습니다.
+
     // ---- 로그인 사용자 연동 (5차 Phase 2, 후속조치 #7) ----
     public static final String LAB067 = "LAB067"; // 로그인이 필요합니다. (401, 세션 필수 설정일 때만)
     public static final String LAB068 = "LAB068"; // 결과 입력자와 확정자가 같습니다. (D3, 설정으로 켰을 때만)

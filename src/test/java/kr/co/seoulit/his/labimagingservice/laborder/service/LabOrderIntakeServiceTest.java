@@ -1,5 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.laborder.service;
 
+import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.interfacelog.entity.InterfaceOrderType;
 import kr.co.seoulit.his.labimagingservice.interfacelog.service.InterfaceReceiveLogService;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
@@ -15,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -128,5 +131,27 @@ class LabOrderIntakeServiceTest {
         service.intake(request("IP", null));
 
         verify(interfaceReceiveLogService).logReceived(eq(InterfaceOrderType.LAB), eq("03"), anyString());
+    }
+
+    /**
+     * 마무리_최종현황 03번 지시서 C-1(I-09) — encounterType=IP 는 진료구분 05 로 매핑되는데,
+     * admin 공통코드에 05 가 아직 없을 때(또는 캐시 갱신 전)는 LabOrderService.createOrder() 안의
+     * validateCode(RCPT_TYPE_CD, ...)가 LAB017 로 거절한다. 이 클래스는 LabOrderService 를
+     * 통째로 mock 하므로 CommonCodeCache 를 직접 거치지 않는다 — 그 대신 createOrder 가 던지는
+     * 거절을 그대로 흉내 내, intake() 가 (a) 예외를 삼키지 않고 다시 던지는지 (b) 수신 기록에
+     * LAB017 로 남기는지를 확인한다(둘 다 05 등록 전 상태에서 실제로 일어날 동작이다).
+     */
+    @Test
+    @DisplayName("encounterType=IP인데 진료구분 05가 공통코드에 없으면 LAB017로 거절되고 수신 기록에 남는다")
+    void intakeInpatientRejectedWhenTreatTypeCodeNotRegistered() {
+        LabImagingBusinessException rejection = new LabImagingBusinessException(
+                LabMessageCode.LAB017, "유효하지 않은 진료구분코드입니다. (RCPT_TYPE_CD=05)");
+        when(labOrderService.createOrder(any())).thenThrow(rejection);
+
+        assertThatThrownBy(() -> service.intake(request("IP", null)))
+                .isSameAs(rejection);
+
+        verify(interfaceReceiveLogService).markResult(
+                eq("log-1"), eq(LabMessageCode.LAB017), anyString());
     }
 }

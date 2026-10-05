@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.imagingschedule.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderItemRepository;
@@ -41,6 +42,7 @@ public class ImageScheduleService {
     private final ImageScheduleMapper imageScheduleMapper;
     private final ImageOrderItemRepository imageOrderItemRepository;
     private final CommonCodeCache commonCodeCache;
+    private final DateTimeValidator dateTimeValidator;
 
     @Transactional
     public ImageScheduleResponseDto createImageSchedule(ImageScheduleCreateRequestDto request) {
@@ -70,6 +72,7 @@ public class ImageScheduleService {
 
         validateScheduleCodes(request.getRoomCode(), request.getEquipmentCode(),
                 request.getContraindicationCheckCode());
+        dateTimeValidator.rejectIfPastDate(request.getScheduledAt(), "scheduledAt");
 
         ImageScheduleEntity schedule = ImageScheduleEntity.builder()
                 .roomCode(request.getRoomCode())
@@ -104,6 +107,7 @@ public class ImageScheduleService {
         // 기존 일정을 내리기 전에 검증한다. 검증에서 실패하면 latest_yn 전환도 일어나면 안 된다.
         validateScheduleCodes(request.getRoomCode(), request.getEquipmentCode(),
                 request.getContraindicationCheckCode());
+        dateTimeValidator.rejectIfPastDate(request.getScheduledAt(), "scheduledAt");
 
         current.markAsNotLatest();
 

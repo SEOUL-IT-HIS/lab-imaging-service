@@ -25,6 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -156,6 +159,7 @@ public class LabOrderService {
         for (LabOrderItemRequestDto itemRequest : request.getOrderItems()) {
             validateCode("TEST_TYPE_CD", itemRequest.getLabItemCode(), "검사항목코드");
         }
+        requireNoDuplicateItems(request.getOrderItems());
 
         // 중복 접수 방지: 오더번호(lab_order_no) UNIQUE 위반을 사전에 확인
         if (labOrderRepository.existsByLabOrderNo(request.getLabOrderNo())) {
@@ -215,6 +219,18 @@ public class LabOrderService {
                     LabMessageCode.LAB017,
                     "유효하지 않은 " + fieldLabel + "입니다. (" + groupCode + "=" + code + ")"
             );
+        }
+    }
+
+    /** 같은 검사항목코드가 두 번 이상 들어오면 거절한다. (LAB113, 04번 지시서 Phase 3-E-2) */
+    private void requireNoDuplicateItems(List<LabOrderItemRequestDto> orderItems) {
+        Set<String> seen = new HashSet<>();
+        for (LabOrderItemRequestDto item : orderItems) {
+            if (!seen.add(item.getLabItemCode())) {
+                throw new LabImagingBusinessException(
+                        LabMessageCode.LAB113,
+                        "같은 항목이 중복 입력되었습니다. (검사항목코드=" + item.getLabItemCode() + ")");
+            }
         }
     }
 

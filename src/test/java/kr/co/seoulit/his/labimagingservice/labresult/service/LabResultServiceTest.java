@@ -505,6 +505,88 @@ class LabResultServiceTest {
                 .extracting("messageCode").isEqualTo(LabMessageCode.LAB998);
     }
 
+    // ==================================================================
+    // 결과값 숫자 형식 검증 (LAB105/106) — 04번 지시서 Phase 3-A
+    // ==================================================================
+
+    @Test
+    @DisplayName("참고범위가 수치 범위인데 결과값이 숫자가 아니면 LAB105로 거절한다 (등록)")
+    void createRejectsNonNumericResultValueAgainstNumericRange() {
+        readySpecimen();
+
+        LabResultCreateRequestDto request = request().toBuilder()
+                .resultValue("4.2mg").referenceRange("3.5-5.5").build();
+
+        assertThatThrownBy(() -> service.createLabResult(request))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB105);
+        verify(labResultRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참고범위의 하한이 상한보다 크거나 같으면 LAB106으로 거절한다 (등록)")
+    void createRejectsInvertedNumericRange() {
+        readySpecimen();
+
+        LabResultCreateRequestDto request = request().toBuilder()
+                .resultValue("4.2").referenceRange("6.0-3.5").build();
+
+        assertThatThrownBy(() -> service.createLabResult(request))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB106);
+        verify(labResultRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참고범위가 정성 표기면 결과값 형식을 따지지 않는다 (회귀 — 기존 정성 판정과 공존)")
+    void createDoesNotValidateFormatForQualitativeRange() {
+        readySpecimen();
+
+        LabResultCreateRequestDto request = request().toBuilder()
+                .resultValue("양성").referenceRange("음성,정상").build();
+
+        service.createLabResult(request);
+
+        verify(labResultRepository).save(any(LabResultEntity.class));
+    }
+
+    @Test
+    @DisplayName("참고범위가 수치 범위인데 결과값이 숫자가 아니면 LAB105로 거절한다 (수정)")
+    void updateRejectsNonNumericResultValueAgainstNumericRange() {
+        LabOrderItemEntity item = mock(LabOrderItemEntity.class);
+        when(item.getLabOrder()).thenReturn(order);
+        when(item.getLabItemCode()).thenReturn("01");
+
+        LabResultEntity existing = LabResultEntity.builder()
+                .resultValue("4.2").resultUnit(null).referenceRange("3.5-5.5")
+                .abnormalYn("N").resultStatusCode("01")
+                .recordedAt(java.time.LocalDateTime.now()).recordedById("emp-1")
+                .build();
+        existing.assignLabOrderItem(item);
+        when(labResultRepository.findById("result-1")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.updateLabResult("result-1", LabResultUpdateRequestDto.builder()
+                .resultValue("4.2mg").referenceRange("3.5-5.5").build()))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB105);
+    }
+
+    @Test
+    @DisplayName("결과항목 방식도 상세 하나의 결과값이 수치 참고범위에 맞지 않는 형식이면 LAB105로 거절한다")
+    void detailsRejectNonNumericResultValueAgainstNumericRange() {
+        cbcItem();
+        readySpecimen();
+        givenCbcRules();
+        List<LabReferenceRangeEntity> ranges = List.of(referenceRange("02", "ALL", "4.0-10.0"));
+        when(labReferenceRangeRepository.findByResultItemCodeInAndUseYn(anyList(), anyString()))
+                .thenReturn(ranges);
+
+        assertThatThrownBy(() -> service.createLabResult(cbcRequest(List.of(detailRequest("02", "abc")))))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB105);
+        verify(labResultRepository, never()).save(any());
+    }
+
     @Test
     @DisplayName("확정 전 결과항목 수정 — 값 갱신·없어진 항목 삭제·새 항목 추가가 한 번에 반영되고 헤더 abnormal_yn 을 다시 계산한다")
     void updateDetailsReplacesAndRecalculatesHeader() {

@@ -26,15 +26,25 @@ import org.springframework.stereotype.Component;
  *
  * ⚠ empId 는 admin EMPLOYEE.EMP_ID(VARCHAR2(36) UUID)다. 담당자ID 컬럼을 20 → 36 으로
  *   늘린 이유가 이것이다(lab_imaging_schema_최종보강.sql PART 1-1).
+ *
+ * ⚠ 세션이 있을 때(loginUser.getEmpId())는 StaffValidator 를 거치지 않는다. 로그인 자체가
+ *   admin 인증을 통과했다는 뜻이라 다시 디렉터리에 물을 필요가 없다. 세션이 없어 요청값을
+ *   그대로 쓰는 과도기 분기(③)에서만 StaffValidator.requireActiveStaff 로 확인한다 —
+ *   화면이 아무 문자열이나 적어 보내도 디렉터리에 없는 값이면 모드에 따라 걸러진다.
+ *   (직원 검증, 2026-10-05, 04번 지시서 Phase 2-B)
  */
 @Slf4j
 @Component
 public class ActorIdResolver {
 
     private final boolean sessionRequired;
+    private final StaffValidator staffValidator;
 
-    public ActorIdResolver(@Value("${app.auth.actor-from-session-required:false}") boolean sessionRequired) {
+    public ActorIdResolver(
+            @Value("${app.auth.actor-from-session-required:false}") boolean sessionRequired,
+            StaffValidator staffValidator) {
         this.sessionRequired = sessionRequired;
+        this.staffValidator = staffValidator;
     }
 
     /**
@@ -66,6 +76,7 @@ public class ActorIdResolver {
 
         log.warn("[ACTOR] 로그인 세션이 없어 {} 에 요청값을 사용합니다. (과도기 — app.auth.actor-from-session-required=false)",
                 fieldName);
+        staffValidator.requireActiveStaff(requestedId, fieldName);
         return requestedId;
     }
 

@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.imagingconsent.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentWithdrawRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.entity.ConsentEntity;
@@ -46,13 +47,19 @@ class ConsentServiceTest {
     @Mock ImageOrderRepository imageOrderRepository;
     @Mock ConsentMapper consentMapper;
     @Mock CommonCodeCache commonCodeCache;
+    @Mock DateTimeValidator dateTimeValidator;
 
     @InjectMocks ConsentService consentService;
 
+    private static final String PATIENT_ID = "patient-1";
+    /** 형식 검증(LAB115, Phase 3-C)을 통과해야 다른 테스트들이 그 뒤 분기까지 도달한다 — 반드시 UUID 형태. */
+    private static final String VALID_TEMPLATE_ID = "d0a1b2c3-4d5e-6f70-8192-a3b4c5d6e7f8";
+
     private final ConsentCreateRequestDto request = ConsentCreateRequestDto.builder()
             .imageOrderId("io-1")
+            .patientId(PATIENT_ID)
             .consentTypeCode("01")
-            .documentTemplateId("tpl-1")
+            .documentTemplateId(VALID_TEMPLATE_ID)
             .consentYn("Y")
             .consentDt(LocalDate.now())
             .signedByName("Kim")
@@ -61,7 +68,9 @@ class ConsentServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(imageOrderRepository.findById("io-1")).thenReturn(Optional.of(mock(ImageOrderEntity.class)));
+        ImageOrderEntity imageOrder = mock(ImageOrderEntity.class);
+        when(imageOrder.getPatientId()).thenReturn(PATIENT_ID);
+        when(imageOrderRepository.findById("io-1")).thenReturn(Optional.of(imageOrder));
         when(commonCodeCache.isValid(anyString(), anyString())).thenReturn(true);
         when(consentRepository.save(any(ConsentEntity.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -84,6 +93,37 @@ class ConsentServiceTest {
         assertThatThrownBy(() -> consentService.createConsent(request))
                 .isInstanceOf(LabImagingBusinessException.class)
                 .extracting("messageCode").isEqualTo(LabMessageCode.LAB031);
+    }
+
+    // ---------- 환자 대조 · 식별자 형식 · 동의일 (04번 지시서 Phase 3-C) ----------
+
+    @Test
+    @DisplayName("요청 patientId가 영상오더의 환자와 다르면 LAB051로 거절하고 저장하지 않는다")
+    void patientMismatchRejected() {
+        assertThatThrownBy(() -> consentService.createConsent(request.toBuilder().patientId("other-patient").build()))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB051);
+        org.mockito.Mockito.verify(consentRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("documentTemplateId가 UUID 형식이 아니면 LAB115로 거절한다")
+    void invalidTemplateIdRejected() {
+        assertThatThrownBy(() -> consentService.createConsent(request.toBuilder().documentTemplateId("tpl-1").build()))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB115);
+    }
+
+    @Test
+    @DisplayName("동의일이 미래면(DateTimeValidator 가 LAB107을 던지면) 저장하지 않는다")
+    void futureConsentDtRejected() {
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB107, "미래 시각/일자는 입력할 수 없습니다."))
+                .when(dateTimeValidator).rejectIfFuture(any(LocalDate.class), org.mockito.ArgumentMatchers.eq("consentDt"));
+
+        assertThatThrownBy(() -> consentService.createConsent(request))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB107);
+        org.mockito.Mockito.verify(consentRepository, org.mockito.Mockito.never()).save(any());
     }
 
     @Test

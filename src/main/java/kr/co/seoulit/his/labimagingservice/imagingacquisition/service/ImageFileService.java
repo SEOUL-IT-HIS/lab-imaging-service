@@ -16,8 +16,8 @@ import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEnt
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.imagingschedule.repository.ImageScheduleRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,7 +41,6 @@ import java.util.Set;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ImageFileService {
 
     /** 최종(현재 유효) 일정 판별값. IMAGE_SCHEDULE.latest_yn (ImageScheduleService 와 동일) */
@@ -81,8 +80,37 @@ public class ImageFileService {
     /** 첫 촬영 완료 시 청구 요청 — 발신 이력 경유, 커밋 후 발행 (5차 Phase 7, D11) */
     private final BillingChargeService billingChargeService;
 
+    /**
+     * 영상파일 크기 상한(바이트). (LAB109, 04번 지시서 Phase 3-D)
+     * ⚠ 기본값은 지시서 권고(100MB)가 아니라 Phase 0-5 에서 발견한 Next.js 프록시 본문 상한(10MB,
+     *   초과 시 조용히 잘림)에 안전하게 맞춘 값이다(2026-10-05 사용자 결정) — MultipartUploadConfig
+     *   클래스 주석 참고. 운영에서 프록시 상한을 올리면 이 값도 같이 올릴 수 있다.
+     */
+    private final long imageMaxBytes;
+
     /** 영상파일 저장 경로 접두어. 추출 전 "/image-files/" 그대로 (5차 조건: 영상 업로드 동작 불변) */
     private static final String IMAGE_FILE_PATH_PREFIX = "/image-files/";
+
+    public ImageFileService(
+            ImageFileRepository imageFileRepository,
+            ImageReceptionRepository imageReceptionRepository,
+            ImageScheduleRepository imageScheduleRepository,
+            ConsentRepository consentRepository,
+            ConsentRequirementPolicy consentRequirementPolicy,
+            ImageFileMapper imageFileMapper,
+            SeaweedFsFileStorage seaweedFsFileStorage,
+            BillingChargeService billingChargeService,
+            @Value("${app.upload.image-max-bytes:8388608}") long imageMaxBytes) {
+        this.imageFileRepository = imageFileRepository;
+        this.imageReceptionRepository = imageReceptionRepository;
+        this.imageScheduleRepository = imageScheduleRepository;
+        this.consentRepository = consentRepository;
+        this.consentRequirementPolicy = consentRequirementPolicy;
+        this.imageFileMapper = imageFileMapper;
+        this.seaweedFsFileStorage = seaweedFsFileStorage;
+        this.billingChargeService = billingChargeService;
+        this.imageMaxBytes = imageMaxBytes;
+    }
 
     /**
      * 영상파일을 업로드하고 SeaweedFS + DB에 저장한다.
@@ -202,6 +230,7 @@ public class ImageFileService {
             throw new LabImagingBusinessException(LabMessageCode.LAB998, "업로드할 파일이 비어 있습니다.");
         }
         validateContentType(file.getContentType());
+        validateFileSize(file.getSize());
 
         ImageReceptionEntity reception = imageReceptionRepository.findById(request.getImageReceptionId())
                 .orElseThrow(() -> new LabImagingBusinessException(
@@ -264,6 +293,15 @@ public class ImageFileService {
                     LabMessageCode.LAB054,
                     "허용되지 않는 파일 형식입니다. (contentType=" + contentType + ", 허용="
                             + ALLOWED_CONTENT_TYPES + ")");
+        }
+    }
+
+    /** 파일 크기가 상한(imageMaxBytes)을 넘는지 확인한다. (LAB109, Phase 3-D) */
+    private void validateFileSize(long fileSize) {
+        if (fileSize > imageMaxBytes) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB109,
+                    "파일 크기가 허용 범위를 넘었습니다. (size=" + fileSize + ", 허용=" + imageMaxBytes + ")");
         }
     }
 

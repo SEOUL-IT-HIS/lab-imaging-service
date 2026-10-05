@@ -5,10 +5,12 @@ import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.stream.Collectors;
 
@@ -98,6 +100,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(LabMessageCode.LAB998,
                         "필수 항목이 누락되었거나 형식이 올바르지 않습니다. (" + detail + ")"));
+    }
+
+    /**
+     * 업로드 파일 크기 초과. (LAB109, 04번 지시서 Phase 3-D)
+     *
+     * ⚠ 413(Payload Too Large)으로 내린다. MultipartConfigElement(공통 설정) 상한을 넘으면
+     *   컨트롤러 메서드에 진입하기 전에 Spring 이 이 예외를 던진다 — 서비스 계층의 개별 상한
+     *   검사(영상 업로드·병리 첨부, 같은 LAB109)와는 별개의 경로지만 같은 코드로 응답해
+     *   프론트가 코드 하나만 처리하면 되게 한다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.fail(LabMessageCode.LAB109, "파일 크기가 허용 범위를 넘었습니다."));
+    }
+
+    /**
+     * 요청 본문을 읽을 수 없음(JSON 문법 오류, 날짜 형식 오류 등). (04번 지시서 Phase 3-E-4)
+     *
+     * ⚠ 요청 값은 응답에 싣지 않는다 — 원문에 환자ID 등 식별자가 섞여 있을 수 있다
+     *   (개발표준가이드 15.1, handleValidation 과 같은 기준).
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(LabMessageCode.LAB998, "요청 형식이 올바르지 않습니다."));
     }
 
     @ExceptionHandler(Exception.class)

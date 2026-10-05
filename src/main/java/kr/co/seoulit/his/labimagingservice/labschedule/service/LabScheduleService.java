@@ -2,6 +2,7 @@ package kr.co.seoulit.his.labimagingservice.labschedule.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.labschedule.dto.LabScheduleRescheduleRequestDto;
@@ -21,6 +22,7 @@ public class LabScheduleService {
     private final LabScheduleRepository labScheduleRepository;
     private final LabReceptionRepository labReceptionRepository;
     private final LabScheduleMapper labScheduleMapper;
+    private final DateTimeValidator dateTimeValidator;
 
     @Transactional
     public LabScheduleResponseDto createLabSchedule(LabScheduleCreateRequestDto request) {
@@ -45,6 +47,8 @@ public class LabScheduleService {
                             + reception.getReceptionNo() + ")");
         }
 
+        dateTimeValidator.rejectIfPastDate(request.getScheduledAt(), "scheduledAt");
+
         LabScheduleEntity schedule = LabScheduleEntity.builder()
                 .scheduledAt(request.getScheduledAt())
                 .reservationYn(request.getReservationYn())
@@ -64,6 +68,9 @@ public class LabScheduleService {
                 .findByLabReception_LabReceptionIdAndLatestYn(labReceptionId, "Y")
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB014, "재등록할 기존 검사 일정이 없습니다."));
+
+        dateTimeValidator.rejectIfPastDate(request.getScheduledAt(), "scheduledAt");
+
         // 기존 "최종본" 일정(latest_yn='Y')의 상태를 도메인 메서드로 N으로 전환한다.
 // (Entity 내부에 캡슐화된 메서드 — 필드를 밖에서 직접 setLatestYn("N")으로 바꾸지 않고
 //  "최종본에서 내려온다"는 업무 의미가 드러나는 이름의 메서드를 통해 변경한다)

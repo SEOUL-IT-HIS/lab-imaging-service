@@ -59,6 +59,13 @@ public class LabReceptionDetailDto {
     @Schema(description = "처방의번호", example = "D0032")
     private String physicianNo;
 
+    /**
+     * 처방의ID (admin 직원 empId) — 화면에 찍는 값이 아니라 처방의사명을 조회하는 열쇠다.
+     * (patientId 필드 주석과 같은 취급 — 2026-10-05, 처방의사명 표시)
+     */
+    @Schema(description = "처방의ID (처방의사명 조회용)", example = "a1b2c3d4-5e6f-7081-92a3-b4c5d6e7f809")
+    private String physicianId;
+
     @Schema(description = "검사항목코드 목록 (공통코드 TEST_TYPE_CD)", example = "[\"01\",\"02\"]")
     private List<String> labItemCodes;
 

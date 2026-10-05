@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.messaging;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
@@ -51,7 +52,8 @@ class ImageOrderRequestedConsumerTest {
 
     @BeforeEach
     void setUp() {
-        consumer = new ImageOrderRequestedConsumer(new ImageOrderIntakeService(imageOrderService), producer,
+        consumer = new ImageOrderRequestedConsumer(
+                new ImageOrderIntakeService(imageOrderService, mock(StaffDirectoryCache.class)), producer,
                 receiveLogService, JsonMapper.builder().build());
         when(receiveLogService.findByEventId("evt-1")).thenReturn(Optional.empty());
         when(receiveLogService.logReceived(any(), anyString(), anyString(), anyString(), anyString())).thenReturn("log-1");

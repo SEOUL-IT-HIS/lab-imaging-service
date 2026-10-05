@@ -120,4 +120,28 @@ class InterfaceSendLogServiceTest {
         verify(updater).beginRetry("f");
         verify(publisher).publish("f");
     }
+
+    /** 04번 지시서 Phase 3-E-3 — 조회 기간 역전(from > to) 거절. */
+    @Test
+    @DisplayName("조회: from > to 이면 LAB114로 거절하고 레포지토리를 조회하지 않는다")
+    void searchRejectsInvertedRange() {
+        java.time.LocalDateTime from = java.time.LocalDateTime.now();
+        java.time.LocalDateTime to = from.minusDays(1);
+
+        assertThatThrownBy(() -> service(true).search(null, null, from, to, 0, 20))
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB114);
+        verify(repository, never()).search(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("조회: from == to 이거나 둘 중 하나만 있으면 거절하지 않는다")
+    void searchAllowsEqualOrPartialRange() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        when(repository.search(any(), any(), any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        service(true).search(null, null, now, now, 0, 20);
+        service(true).search(null, null, now, null, 0, 20);
+        service(true).search(null, null, null, now, 0, 20);
+    }
 }

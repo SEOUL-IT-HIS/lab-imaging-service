@@ -56,6 +56,7 @@ public interface ImageOrderMapper {
     @Mapping(target = "treatTypeCode", source = "order.treatTypeCode")
     @Mapping(target = "urgencyYn", source = "order.urgencyYn")
     @Mapping(target = "physicianNo", source = "order.physicianNo")
+    @Mapping(target = "physicianId", source = "order.physicianId")
     @Mapping(target = "orderStatusCode", source = "order.orderStatusCode")
     @Mapping(target = "receivedAt", source = "order.receivedAt")
     @Mapping(target = "imageItemCodes", source = "order.orderItems")

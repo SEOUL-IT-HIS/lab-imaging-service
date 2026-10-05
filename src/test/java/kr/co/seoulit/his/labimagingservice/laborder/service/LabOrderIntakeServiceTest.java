@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.laborder.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.interfacelog.entity.InterfaceOrderType;
 import kr.co.seoulit.his.labimagingservice.interfacelog.service.InterfaceReceiveLogService;
@@ -36,10 +37,11 @@ class LabOrderIntakeServiceTest {
 
     private final LabOrderService labOrderService = mock(LabOrderService.class);
     private final InterfaceReceiveLogService interfaceReceiveLogService = mock(InterfaceReceiveLogService.class);
+    private final StaffDirectoryCache staffDirectoryCache = mock(StaffDirectoryCache.class);
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     private final LabOrderIntakeService service =
-            new LabOrderIntakeService(labOrderService, interfaceReceiveLogService, objectMapper);
+            new LabOrderIntakeService(labOrderService, interfaceReceiveLogService, staffDirectoryCache, objectMapper);
 
     @BeforeEach
     void setUp() {
@@ -82,6 +84,23 @@ class LabOrderIntakeServiceTest {
         assertThat(LabOrderIntakeService.resolveUrgencyYn(null)).isEqualTo("N");
         assertThat(LabOrderIntakeService.resolveUrgencyYn("")).isEqualTo("N");
         assertThat(LabOrderIntakeService.resolveUrgencyYn("yes")).isEqualTo("N");
+    }
+
+    /**
+     * 마무리_최종현황 04번 지시서 Phase 0-1 — doctorId 가 physicianId 로 들어가고 physicianNo 는
+     * 항상 null 로 비워지는지 확인한다(코어가 처방의 "번호"는 안 주고 ID만 준다, 코드 주석 참고).
+     */
+    @Test
+    @DisplayName("doctorId는 physicianId로 들어가고 physicianNo는 항상 null이다")
+    void doctorIdMapsToPhysicianIdAndPhysicianNoIsAlwaysNull() {
+        service.intake(request("OPD", null));
+
+        ArgumentCaptor<LabOrderCreateRequestDto> captor = ArgumentCaptor.forClass(LabOrderCreateRequestDto.class);
+        verify(labOrderService).createOrder(captor.capture());
+        LabOrderCreateRequestDto saved = captor.getValue();
+
+        assertThat(saved.getPhysicianId()).isEqualTo("doctor-1");
+        assertThat(saved.getPhysicianNo()).isNull();
     }
 
     @Test
@@ -153,5 +172,37 @@ class LabOrderIntakeServiceTest {
 
         verify(interfaceReceiveLogService).markResult(
                 eq("log-1"), eq(LabMessageCode.LAB017), anyString());
+    }
+
+    /**
+     * 04번 지시서 §0-2/Phase 2-E "intake-never-rejects" — doctorId가 직원 디렉터리에서
+     * 의사로 확인되지 않아도(또는 디렉터리 조회 자체가 실패해도) 접수는 그대로 진행된다.
+     * StaffValidator 를 전혀 쓰지 않고 WARN 로그만 남기는 설계이므로, 모드 설정과 무관하게
+     * 항상 통과해야 한다 — 이 테스트가 그 보장을 직접 확인한다.
+     */
+    @Test
+    @DisplayName("doctorId가 의사로 확인되지 않아도 접수는 그대로 진행된다(거절하지 않는다)")
+    void intakeProceedsEvenWhenDoctorIdNotRecognizedAsDoctor() {
+        when(staffDirectoryCache.isAvailable()).thenReturn(true);
+        when(staffDirectoryCache.isDoctor("doctor-1")).thenReturn(false);
+
+        service.intake(request("OPD", null));
+
+        verify(labOrderService).createOrder(any());
+    }
+
+    /**
+     * 직원 디렉터리 조회 자체가 예외를 던져도(admin 장애 등) intake는 영향받지 않는다.
+     * StaffDirectoryCache 내부도 실패를 삼키지만, 혹시 그 보장이 깨지는 경우까지
+     * LabOrderIntakeService 자체의 try-catch 가 한 번 더 막아준다.
+     */
+    @Test
+    @DisplayName("직원 디렉터리 조회가 예외를 던져도 접수는 그대로 진행된다")
+    void intakeProceedsEvenWhenStaffDirectoryThrows() {
+        when(staffDirectoryCache.isAvailable()).thenThrow(new RuntimeException("admin down"));
+
+        service.intake(request("OPD", null));
+
+        verify(labOrderService).createOrder(any());
     }
 }

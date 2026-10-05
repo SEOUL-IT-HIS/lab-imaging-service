@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.labresult.service;
 
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 /**
  * 참고범위와 결과값을 비교해 비정상 여부를 판정한다. (ZP2-99)
@@ -35,6 +36,14 @@ public final class AbnormalYnDecider {
 
     private static final String YES = "Y";
     private static final String NO = "N";
+
+    /**
+     * 결과값이 "엄격한 십진수"인지 판별하는 정규식. (LAB105, 04번 지시서 §3-A)
+     * 지수(1e3)·접미사(4.2f)·NaN·Infinity·쉼표(4,2)·앞뒤 공백 포함 입력을 모두 거부한다.
+     * parseNumber()(decide/decideDirection 전용, Double.valueOf 기반)보다 엄격하다 — 그 둘은
+     * NaN/Infinity/지수 표기까지 숫자로 읽어버려 "비정상 아님"으로 잘못 판정될 수 있기 때문이다.
+     */
+    private static final Pattern STRICT_DECIMAL = Pattern.compile("^[+-]?\\d+(\\.\\d+)?$");
 
     private AbnormalYnDecider() {
     }
@@ -100,6 +109,46 @@ public final class AbnormalYnDecider {
                 .map(String::trim)
                 .anyMatch(normal -> normal.equalsIgnoreCase(resultValue.trim()))
                 ? NO : YES;
+    }
+
+    /**
+     * 참고범위가 "min-max" 형태로 숫자 두 개로 읽히는지. (LAB105/106, Phase 3-A)
+     *
+     * ⚠ decide()/decideDirection() 은 숫자로 못 읽으면 조용히 정성 비교로 내려간다(클래스 주석
+     *   참고) — 참고범위가 명백히 수치 범위일 때만 결과값도 숫자여야 한다고 호출부가 미리
+     *   막을 수 있도록, 그 판단 기준을 그대로 공개한다(parseRangeBound 를 또 만들지 않는다).
+     */
+    public static boolean isNumericRange(String referenceRange) {
+        if (referenceRange == null || referenceRange.isBlank()) {
+            return false;
+        }
+        return parseRangeBound(referenceRange, 0) != null && parseRangeBound(referenceRange, 1) != null;
+    }
+
+    /**
+     * 문자열이 "엄격한 십진수"로 읽히는지. (LAB105, Phase 3-A)
+     *
+     * ⚠ decide()/decideDirection() 이 쓰는 parseNumber() 와 다르다 — 그쪽은 결과값 저장을
+     *   바꾸지 않기 위해 건드리지 않는다(§3-A: "기존 동작은 바꾸지 않는다"). 이 메서드는 그
+     *   느슨한 파싱으로는 숫자로 읽혀 조용히 통과했을 "1e3", "NaN", "Infinity", "4.2f", "4,2"
+     *   같은 입력을 전부 거부한다.
+     */
+    public static boolean isNumeric(String text) {
+        return text != null && STRICT_DECIMAL.matcher(text.trim()).matches();
+    }
+
+    /**
+     * 수치 범위의 하한이 상한보다 큰지 않은지(하한 ≤ 상한). (LAB106, Phase 3-A)
+     *
+     * ⚠ 하한 == 상한은 허용한다(지시서 §3-A: "하한 ≤ 상한이어야 한다"). 거절 대상은 하한 &gt; 상한뿐이다.
+     * ⚠ isNumericRange() 가 false 인 범위에는 이 메서드를 쓰지 않는다 — 호출부(LabResultService)가
+     *   먼저 isNumericRange() 로 걸러서 쓰는 전제다. 수치 범위가 아닌데 그대로 부르면
+     *   parseRangeBound 가 null 을 돌려줘 NPE 가 난다.
+     */
+    public static boolean isValidNumericRangeOrder(String referenceRange) {
+        Double min = parseRangeBound(referenceRange, 0);
+        Double max = parseRangeBound(referenceRange, 1);
+        return min <= max;
     }
 
     /**

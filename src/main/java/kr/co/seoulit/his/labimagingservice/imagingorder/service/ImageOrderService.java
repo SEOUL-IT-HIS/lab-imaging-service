@@ -25,8 +25,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -201,6 +203,7 @@ public class ImageOrderService {
         for (ImageOrderItemRequestDto itemRequest : request.getOrderItems()) {
             validateCode("IMG_ITEM_CD", itemRequest.getImageItemCode(), "촬영항목코드");
         }
+        requireNoDuplicateItems(request.getOrderItems());
 
         if (imageOrderRepository.existsByImageOrderNo(request.getImageOrderNo())) {
             throw new DuplicateOrderException(
@@ -256,6 +259,18 @@ public class ImageOrderService {
                     LabMessageCode.LAB017,
                     "유효하지 않은 " + fieldLabel + "입니다. (" + groupCode + "=" + code + ")"
             );
+        }
+    }
+
+    /** 같은 촬영항목코드가 두 번 이상 들어오면 거절한다. (LAB113, 04번 지시서 Phase 3-E-2) */
+    private void requireNoDuplicateItems(List<ImageOrderItemRequestDto> orderItems) {
+        Set<String> seen = new HashSet<>();
+        for (ImageOrderItemRequestDto item : orderItems) {
+            if (!seen.add(item.getImageItemCode())) {
+                throw new LabImagingBusinessException(
+                        LabMessageCode.LAB113,
+                        "같은 항목이 중복 입력되었습니다. (촬영항목코드=" + item.getImageItemCode() + ")");
+            }
         }
     }
 

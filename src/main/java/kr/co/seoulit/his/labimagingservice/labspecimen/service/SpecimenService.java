@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.labspecimen.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
@@ -68,6 +69,7 @@ public class SpecimenService {
     private final SpecimenMapper specimenMapper;
     private final LabReceptionRepository labReceptionRepository;
     private final LabTestSpecimenRuleRepository labTestSpecimenRuleRepository;
+    private final DateTimeValidator dateTimeValidator;
 
     @Transactional
     public SpecimenSummaryDto createSpecimen(SpecimenCreateRequestDto request) {
@@ -78,6 +80,7 @@ public class SpecimenService {
 
         validateCode("SPECIMEN_CONTAINER_CD", request.getSpecimenContainerCode(), "검체용기코드");
         validateSpecimenCombination(reception, request.getSpecimenType(), request.getSpecimenContainerCode());
+        dateTimeValidator.rejectIfFuture(request.getCollectedAt(), "collectedAt");
 
         String patientId = resolvePatientId(reception, request.getPatientId());
 

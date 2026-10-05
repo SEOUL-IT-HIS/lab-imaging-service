@@ -122,6 +122,10 @@ public class InterfaceSendLogService {
     @Transactional(readOnly = true)
     public PageResponse<InterfaceSendLogDto> search(String eventTypeCode, String sendStatusCode,
                                                     LocalDateTime from, LocalDateTime to, int page, int size) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB114, "조회 기간이 올바르지 않습니다. (from=" + from + ", to=" + to + ")");
+        }
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         return PageResponse.of(

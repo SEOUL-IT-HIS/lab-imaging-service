@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,6 +31,13 @@ public class LabOrderCreateRequestDto {
     // MSA 간 참조 식별자를 VARCHAR2(36)으로 통일 (2026-08-25). 처방코어의 prescriptionId 가 최대 36자.
     @NotBlank
     @Size(max = 36)
+    /*
+     * ⚠ 수동 등록 폼(LabOrderController.createOrder) 에만 적용된다(04번 지시서 Phase 3-E-1).
+     *   intake 경로(LabOrderIntakeService.toCreateRequest)는 이 DTO 를 직접 생성해 서비스로
+     *   넘길 뿐 @Valid 를 거치지 않는다 — 코어가 보내는 prescriptionId 형식에 이 제약이 영향을
+     *   주지 않는다(별도 DTO인 LabOrderIntakeRequestDto 가 그 경로의 입력이다).
+     */
+    @Pattern(regexp = "[A-Za-z0-9._-]+", message = "허용되지 않는 문자가 포함되어 있습니다. (영문/숫자/.  _  - 만 허용)")
     @Schema(description = "외부시스템 오더 원본 번호 (LAB_ORDER.lab_order_no, UNIQUE)", example = "EXT-LO-20260715-001", requiredMode = Schema.RequiredMode.REQUIRED)
     private String labOrderNo;
 

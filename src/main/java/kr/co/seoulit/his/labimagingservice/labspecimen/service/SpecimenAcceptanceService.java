@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.labspecimen.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenAcceptanceRequestDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenAcceptanceSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.FitnessStatus;
@@ -35,6 +36,7 @@ public class SpecimenAcceptanceService {
     private final SpecimenRepository specimenRepository;
     private final SpecimenAcceptanceMapper specimenAcceptanceMapper;
     private final CommonCodeCache commonCodeCache;
+    private final DateTimeValidator dateTimeValidator;
 
     /**
      * 검체 인수 + 적합성 판정 등록.
@@ -65,6 +67,9 @@ public class SpecimenAcceptanceService {
         }
 
         validateJudgment(request);
+        dateTimeValidator.rejectIfFuture(request.getAcceptedAt(), "acceptedAt");
+        dateTimeValidator.rejectIfEarlierThan(
+                request.getAcceptedAt(), specimen.getCollectedAt(), "acceptedAt", "collectedAt");
 
         SpecimenAcceptanceEntity acceptance = SpecimenAcceptanceEntity.builder()
                 .acceptedAt(request.getAcceptedAt())

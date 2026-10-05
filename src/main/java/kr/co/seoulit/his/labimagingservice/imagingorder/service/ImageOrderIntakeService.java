@@ -1,10 +1,12 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.service;
 
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.messaging.dto.ImageOrderRequestedData;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,7 +23,11 @@ import java.util.List;
  *   그 경로는 동작 불변 조건이라 손대지 않았다).
  * ⚠ @Transactional 을 걸지 않는다. 걸면 createOrder 가 여기에 합류해, 실패 시 Consumer 의 결과 기록 흐름과 얽힌다.
  *   예외는 그대로 던진다 — 업무 거절/재시도 판단은 Consumer 가 한다.
+ *
+ * ⚠ 직원 검증(StaffValidator)을 쓰지 않는다 — LabOrderIntakeService 와 같은 이유(§0-2, 그쪽 javadoc
+ *   참고). doctorId 가 의사로 확인되지 않아도 WARN 로그만 남기고 접수는 그대로 진행한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageOrderIntakeService {
@@ -36,9 +42,26 @@ public class ImageOrderIntakeService {
     private static final String RECEIVED_BY_SYSTEM = "SYSTEM";
 
     private final ImageOrderService imageOrderService;
+    private final StaffDirectoryCache staffDirectoryCache;
 
     public ImageOrderSummaryDto intake(ImageOrderRequestedData data) {
+        warnIfDoctorIdNotRecognized(data.getDoctorId());
         return imageOrderService.createOrder(toCreateRequest(data));
+    }
+
+    /** LabOrderIntakeService.warnIfDoctorIdNotRecognized 와 같다 — intake는 절대 거절하지 않는다. */
+    private void warnIfDoctorIdNotRecognized(String doctorId) {
+        if (doctorId == null || doctorId.isBlank()) {
+            return;
+        }
+        try {
+            if (staffDirectoryCache.isAvailable() && !staffDirectoryCache.isDoctor(doctorId)) {
+                log.warn("[STAFF_VALIDATION] 연계 수신 doctorId가 의사로 확인되지 않습니다. 접수는 그대로 진행합니다. (doctorId={})",
+                        doctorId);
+            }
+        } catch (RuntimeException e) {
+            log.warn("[STAFF_VALIDATION] 직원 디렉터리 조회 중 오류가 있었지만 접수는 그대로 진행합니다.", e);
+        }
     }
 
     /** 순수 변환. itemName·encounterId 는 옮기지 않는다(저장 컬럼 없음 / 표시명은 공통코드에서). */

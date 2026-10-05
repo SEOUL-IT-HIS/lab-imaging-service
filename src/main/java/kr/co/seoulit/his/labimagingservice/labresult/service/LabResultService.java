@@ -203,6 +203,7 @@ public class LabResultService {
             // 기존 방식 — 규칙이 없는 검사. 동작은 6차 이전과 동일하다(회귀 금지).
             rejectIfDetailsSentToUnsupportedTest(request.getDetails(), labOrderItem.getLabItemCode());
             requireResultValue(request.getResultValue());
+            validateNumericResultIfApplicable(request.getResultValue(), request.getReferenceRange(), "resultValue");
 
             labResult = LabResultEntity.builder()
                     .resultValue(request.getResultValue())
@@ -335,6 +336,7 @@ public class LabResultService {
         if (itemRules.isEmpty()) {
             rejectIfDetailsSentToUnsupportedTest(request.getDetails(), labOrderItem.getLabItemCode());
             requireResultValue(request.getResultValue());
+            validateNumericResultIfApplicable(request.getResultValue(), request.getReferenceRange(), "resultValue");
 
             labResult.modifyResult(
                     request.getResultValue(),
@@ -530,6 +532,37 @@ public class LabResultService {
     }
 
     /**
+     * 참고범위가 수치 범위("3.5-5.5")일 때만 적용되는 검증 두 가지. (LAB105/106, 04번 지시서 Phase 3-A)
+     *   1) 범위 자체가 뒤집혀 있으면(하한&gt;상한) LAB106 — AbnormalYnDecider.decide() 가
+     *      그 범위로는 거의 모든 값을 비정상으로 잘못 판정하게 된다. 하한==상한은 허용한다
+     *      (지시서 §3-A: "하한 ≤ 상한이어야 한다").
+     *   2) 범위는 멀쩡한데 결과값이 엄격한 십진수로 안 읽히면 LAB105 — decide() 는 느슨한 파싱
+     *      (Double.valueOf)으로 "1e3"·"NaN"·"Infinity" 까지 숫자로 읽어버리고, 그 밖의 오타
+     *      ("4.2mg", "4,2")는 조용히 정성 비교로 내려가(AbnormalYnDecider 클래스 주석 참고)
+     *      참고범위 문자열과 같을 수 없어 항상 비정상으로 잘못 판정되는데도 입력한 사람은 그
+     *      사실을 알 길이 없다.
+     *
+     * ⚠ 참고범위가 수치 범위가 아니면(정성, 또는 "≤5" 같은 미지원 표기) 아무것도 하지 않는다 —
+     *   그 경우의 한계는 AbnormalYnDecider 가 이미 문서화한 그대로 둔다.
+     */
+    private void validateNumericResultIfApplicable(String resultValue, String referenceRange, String fieldLabel) {
+        if (!AbnormalYnDecider.isNumericRange(referenceRange)) {
+            return;
+        }
+        if (!AbnormalYnDecider.isValidNumericRangeOrder(referenceRange)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB106,
+                    "참고범위의 하한이 상한보다 큽니다. (" + fieldLabel + " 참고범위=" + referenceRange + ")");
+        }
+        if (resultValue != null && !resultValue.isBlank() && !AbnormalYnDecider.isNumeric(resultValue)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB105,
+                    "결과값이 숫자 형식이 아닙니다. 참고범위(" + referenceRange + ")가 수치 범위입니다. ("
+                            + fieldLabel + "=" + resultValue + ")");
+        }
+    }
+
+    /**
      * 요청 details 를 검증하고 저장할 LabResultDetailEntity 목록을 만든다. (2-2 검증 6종)
      *
      * 검증 순서: 개수(1~4) → 중복 → 이 검사의 규칙에 속하는지 → 공통코드(RESULT_ITEM_CD).
@@ -575,6 +608,8 @@ public class LabResultService {
         for (LabResultDetailRequestDto detail : details) {
             LabResultItemRuleEntity rule = ruleByCode.get(detail.getResultItemCode());
             String referenceRange = referenceRangeByCode.get(detail.getResultItemCode());
+            validateNumericResultIfApplicable(
+                    detail.getResultValue(), referenceRange, "resultItemCode=" + detail.getResultItemCode());
             // 참고범위 기준이 없으면(환자 성별 미상 + ALL 행도 없음) 판정하지 않는다 — 2-2.
             String abnormalYn = (referenceRange == null) ? NO
                     : AbnormalYnDecider.decide(detail.getResultValue(), referenceRange);

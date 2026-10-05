@@ -1,8 +1,10 @@
 package kr.co.seoulit.his.labimagingservice.laborder.controller;
 
 import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
 import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
+import kr.co.seoulit.his.labimagingservice.common.session.StaffValidator;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
@@ -35,6 +37,8 @@ public class LabOrderController {
     private final LabOrderService labOrderService;
     private final ActorIdResolver actorIdResolver;
     private final LabWorklistService labWorklistService;
+    private final StaffValidator staffValidator;
+    private final StaffDirectoryCache staffDirectoryCache;
 
     @Operation(summary = "검사 워크리스트 조회",
             description = "결과 등록 전까지의 검사 접수를 진행 상태와 함께 조회한다. "
@@ -104,6 +108,17 @@ public class LabOrderController {
         );
     }
 
+    /**
+     * ⚠ 직원 검증(staffValidator)을 여기(컨트롤러)에서 한다 — LabOrderService.createOrder 안에
+     *   넣지 않는다. 그 메서드는 LabOrderIntakeController/LabOrderIntakeService(처방코어 연계
+     *   수신)도 그대로 호출하는데, intake 경로는 직원/의사 사유로 절대 거절하면 안 된다
+     *   (04번 지시서 §0-2). 검증을 서비스 안에 두면 ENFORCE 모드에서 연계 수신까지 막히게 된다.
+     *   이 메서드(프론트 수동 등록 폼 전용 입구)에서만 걸어야 그 경계가 지켜진다.
+     *
+     * ⚠ physicianNo 는 화면이 보낸 값을 그대로 믿지 않고, physicianId 가 디렉터리에서 찾아지면
+     *   그 직원의 실제 사번으로 서버가 덮어쓴다. 디렉터리에서 못 찾으면(조회 불가/미등록)
+     *   화면이 보낸 값을 그대로 쓴다 — physicianId 없이 physicianNo 만 적는 과거 방식과의 호환.
+     */
     @Operation(summary = "검사 오더 접수", description = "외부 시스템에서 발생한 검사 오더를 접수하고, 검사접수(LAB_RECEPTION)를 함께 생성한다. "
             + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
@@ -112,8 +127,16 @@ public class LabOrderController {
             @LoginUser SessionUser loginUser,
             @Valid @RequestBody LabOrderCreateRequestDto request) {
 
-        LabOrderSummaryDto response = labOrderService.createOrder(request.toBuilder()
-                        .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById")).build());
+        staffValidator.requireDoctorIfPresent(request.getPhysicianId(), "physicianId");
+        String matchedPhysicianNo = staffDirectoryCache.findEmpNo(request.getPhysicianId());
+
+        LabOrderCreateRequestDto.LabOrderCreateRequestDtoBuilder toCreate = request.toBuilder()
+                .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById"));
+        if (matchedPhysicianNo != null) {
+            toCreate.physicianNo(matchedPhysicianNo);
+        }
+
+        LabOrderSummaryDto response = labOrderService.createOrder(toCreate.build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB001, "검사 접수가 생성되었습니다.")

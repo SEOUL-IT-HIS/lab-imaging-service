@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.imaginginterpretation.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.session.StaffValidator;
 import kr.co.seoulit.his.labimagingservice.imaginginterpretation.dto.ImageReadingSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imaginginterpretation.entity.ImageReadingEntity;
 import kr.co.seoulit.his.labimagingservice.imaginginterpretation.mapper.ImageReadingMapper;
@@ -56,6 +57,7 @@ public class ImageReadingService {
     private final ImageOrderItemRepository imageOrderItemRepository;
     private final ImageReadingMapper imageReadingMapper;
     private final CommonCodeCache commonCodeCache;
+    private final StaffValidator staffValidator;
 
     // ------------------------------------------------------------------
     // 조회 (findOrCreate)
@@ -165,6 +167,7 @@ public class ImageReadingService {
                     "이미 확정된 판독은 담당자를 배정할 수 없습니다. (imageReadingId=" + imageReadingId + ")");
         }
 
+        staffValidator.requireDoctor(assignedToId, "assignedToId");
         validateCode(READING_STATUS_CD, STATUS_IN_PROGRESS, "판독상태코드");
 
         reading.assign(assignedToId, LocalDateTime.now(), STATUS_IN_PROGRESS);

@@ -3,6 +3,7 @@ package kr.co.seoulit.his.labimagingservice.labspecimen.service;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
@@ -64,6 +65,7 @@ class SpecimenServiceTest {
     @Mock SpecimenMapper specimenMapper;
     @Mock LabReceptionRepository labReceptionRepository;
     @Mock LabTestSpecimenRuleRepository labTestSpecimenRuleRepository;
+    @Mock DateTimeValidator dateTimeValidator;
 
     @InjectMocks SpecimenService specimenService;
 
@@ -275,5 +277,18 @@ class SpecimenServiceTest {
                 .thenReturn(List.of());
 
         assertThat(specimenService.getAllowedSpecimenRules("LR-1")).isEmpty();
+    }
+
+    /** 04번 지시서 Phase 3-B — DateTimeValidator 연동. 모드별 동작 자체는 DateTimeValidatorTest 가 담당한다. */
+    @Test
+    @DisplayName("채취일시가 미래면(DateTimeValidator 가 LAB107을 던지면) 검체를 저장하지 않는다")
+    void rejectsFutureCollectedAt() {
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB107, "미래 시각/일자는 입력할 수 없습니다."))
+                .when(dateTimeValidator).rejectIfFuture(any(LocalDateTime.class), eq("collectedAt"));
+
+        assertThatThrownBy(() -> specimenService.createSpecimen(request(ORDER_PATIENT_ID)))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB107);
+        verify(specimenRepository, never()).save(any());
     }
 }

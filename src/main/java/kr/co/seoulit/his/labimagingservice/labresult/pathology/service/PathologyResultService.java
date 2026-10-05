@@ -15,7 +15,6 @@ import kr.co.seoulit.his.labimagingservice.labresult.pathology.entity.PathologyR
 import kr.co.seoulit.his.labimagingservice.labresult.pathology.repository.PathologyResultRepository;
 import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultType;
 import kr.co.seoulit.his.labimagingservice.labresult.type.LabResultTypeResolver;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +47,6 @@ import java.util.Set;
  * ⚠ 확정 시 청구는 일반검사와 같은 경로(BillingChargeService)로 요청한다(5차 Phase 5).
  */
 @Service
-@RequiredArgsConstructor
 public class PathologyResultService {
 
     private static final String RESULT_STATUS_CD = "RESULT_STATUS_CD";
@@ -79,8 +77,35 @@ public class PathologyResultService {
     /** 확정 시 결과 전송 — 발신 이력(01) 경유, 커밋 후 발행 (5차 Phase 6) */
     private final LabResultTransmissionService labResultTransmissionService;
 
+    /**
+     * 병리 첨부 크기 상한(바이트). (LAB109, 04번 지시서 Phase 3-D)
+     * ⚠ 기본값 근거는 ImageFileService.imageMaxBytes 와 같다(Next.js 프록시 10MB 상한에 안전하게
+     *   맞춤, 2026-10-05 사용자 결정) — 영상보다 작은 이유는 병리 첨부가 사진·PDF 1건이라
+     *   DICOM 시리즈보다 훨씬 작기 때문이다.
+     */
+    private final long attachmentMaxBytes;
+
     @Value("${app.auth.forbid-self-confirm:false}")
     private boolean forbidSelfConfirm;
+
+    public PathologyResultService(
+            PathologyResultRepository pathologyResultRepository,
+            LabOrderItemRepository labOrderItemRepository,
+            CommonCodeCache commonCodeCache,
+            LabResultTypeResolver labResultTypeResolver,
+            SeaweedFsFileStorage seaweedFsFileStorage,
+            BillingChargeService billingChargeService,
+            LabResultTransmissionService labResultTransmissionService,
+            @Value("${app.upload.attachment-max-bytes:5242880}") long attachmentMaxBytes) {
+        this.pathologyResultRepository = pathologyResultRepository;
+        this.labOrderItemRepository = labOrderItemRepository;
+        this.commonCodeCache = commonCodeCache;
+        this.labResultTypeResolver = labResultTypeResolver;
+        this.seaweedFsFileStorage = seaweedFsFileStorage;
+        this.billingChargeService = billingChargeService;
+        this.labResultTransmissionService = labResultTransmissionService;
+        this.attachmentMaxBytes = attachmentMaxBytes;
+    }
 
     // ------------------------------------------------------------------ 등록 (ZP2-93~97)
 
@@ -246,6 +271,11 @@ public class PathologyResultService {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB087,
                     "허용되지 않는 첨부 파일 형식입니다. (contentType=" + file.getContentType() + ", 허용=jpg/png/pdf)");
+        }
+        if (file.getSize() > attachmentMaxBytes) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB109,
+                    "파일 크기가 허용 범위를 넘었습니다. (size=" + file.getSize() + ", 허용=" + attachmentMaxBytes + ")");
         }
 
         String key = seaweedFsFileStorage.upload(ATTACHMENT_PATH_PREFIX, labOrderItemId, file);

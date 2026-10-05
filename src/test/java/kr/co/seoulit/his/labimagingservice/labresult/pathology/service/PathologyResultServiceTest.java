@@ -47,6 +47,8 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class PathologyResultServiceTest {
 
+    private static final long ATTACHMENT_MAX_BYTES = 5_242_880L;
+
     @Mock PathologyResultRepository pathologyResultRepository;
     @Mock LabOrderItemRepository labOrderItemRepository;
     @Mock CommonCodeCache commonCodeCache;
@@ -65,7 +67,8 @@ class PathologyResultServiceTest {
         TransactionSynchronizationManager.initSynchronization();
 
         service = new PathologyResultService(pathologyResultRepository, labOrderItemRepository, commonCodeCache,
-                new LabResultTypeResolver(Map.of("07", LabResultType.PATHOLOGY)), storage, billingChargeService, labResultTransmissionService);
+                new LabResultTypeResolver(Map.of("07", LabResultType.PATHOLOGY)), storage, billingChargeService,
+                labResultTransmissionService, ATTACHMENT_MAX_BYTES);
 
         item = mock(LabOrderItemEntity.class);
         when(item.getLabOrderItemId()).thenReturn("item-7");
@@ -119,6 +122,29 @@ class PathologyResultServiceTest {
         assertThatThrownBy(() -> service.createResult(request(), tiff))
                 .extracting("messageCode").isEqualTo(LabMessageCode.LAB087);
         verify(storage, never()).upload(anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("첨부가 상한을 넘으면 LAB109 이고 업로드도 하지 않는다 (04번 지시서 Phase 3-D)")
+    void attachmentTooLarge() {
+        MockMultipartFile tooLarge = new MockMultipartFile(
+                "file", "slide.png", "image/png", new byte[(int) (ATTACHMENT_MAX_BYTES + 1)]);
+        assertThatThrownBy(() -> service.createResult(request(), tooLarge))
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB109);
+        verify(storage, never()).upload(anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("첨부가 상한과 같으면 허용된다 (경계값)")
+    void attachmentAtLimitAllowed() {
+        MockMultipartFile atLimit = new MockMultipartFile(
+                "file", "slide.png", "image/png", new byte[(int) ATTACHMENT_MAX_BYTES]);
+        when(storage.upload(eq("/pathology-results/"), eq("item-7"), any()))
+                .thenReturn("/pathology-results/item-7/u_slide.png");
+
+        service.createResult(request(), atLimit);
+
+        verify(storage).upload(eq("/pathology-results/"), eq("item-7"), any());
     }
 
     @Test

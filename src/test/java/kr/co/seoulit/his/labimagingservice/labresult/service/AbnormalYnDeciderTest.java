@@ -53,4 +53,41 @@ class AbnormalYnDeciderTest {
         assertThat(AbnormalYnDecider.decide("정상", "음성,정상")).isEqualTo("N");
         assertThat(AbnormalYnDecider.decide("양성", "음성,정상")).isEqualTo("Y");
     }
+
+    /** LAB105/106 — 04번 지시서 Phase 3-A. LabResultService.validateNumericResultIfApplicable 의 판단 기준. */
+    @Test
+    @DisplayName("isNumericRange: \"min-max\" 둘 다 숫자면 true, 정성/미지원 표기/null·blank 는 false")
+    void isNumericRange() {
+        assertThat(AbnormalYnDecider.isNumericRange("3.5-6.0")).isTrue();
+        assertThat(AbnormalYnDecider.isNumericRange("음성,정상")).isFalse();
+        assertThat(AbnormalYnDecider.isNumericRange("≤5")).isFalse();
+        assertThat(AbnormalYnDecider.isNumericRange(null)).isFalse();
+        assertThat(AbnormalYnDecider.isNumericRange("")).isFalse();
+        assertThat(AbnormalYnDecider.isNumericRange("   ")).isFalse();
+    }
+
+    @Test
+    @DisplayName("isNumeric: 엄격한 십진수만 true — 지수·NaN·Infinity·접미사·쉼표·공백 포함은 전부 false")
+    void isNumeric() {
+        assertThat(AbnormalYnDecider.isNumeric("4.2")).isTrue();
+        assertThat(AbnormalYnDecider.isNumeric("-4.2")).isTrue();
+        assertThat(AbnormalYnDecider.isNumeric("+4.2")).isTrue();
+        assertThat(AbnormalYnDecider.isNumeric("42")).isTrue();
+        assertThat(AbnormalYnDecider.isNumeric("4.2mg")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("4,2")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("1e3")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("NaN")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("Infinity")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("음성")).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric(null)).isFalse();
+        assertThat(AbnormalYnDecider.isNumeric("")).isFalse();
+    }
+
+    @Test
+    @DisplayName("isValidNumericRangeOrder: 하한<=상한이면 true(같아도 허용), 하한>상한이면 false")
+    void isValidNumericRangeOrder() {
+        assertThat(AbnormalYnDecider.isValidNumericRangeOrder("3.5-6.0")).isTrue();
+        assertThat(AbnormalYnDecider.isValidNumericRangeOrder("5.0-5.0")).isTrue();
+        assertThat(AbnormalYnDecider.isValidNumericRangeOrder("6.0-3.5")).isFalse();
+    }
 }

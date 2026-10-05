@@ -1,8 +1,10 @@
 package kr.co.seoulit.his.labimagingservice.imagingorder.controller;
 
 import kr.co.seoulit.his.common.session.SessionUser;
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.common.session.ActorIdResolver;
 import kr.co.seoulit.his.labimagingservice.common.session.LoginUser;
+import kr.co.seoulit.his.labimagingservice.common.session.StaffValidator;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.dto.ApiResponse;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
@@ -35,6 +37,8 @@ public class ImageOrderController {
     private final ImageOrderService imageOrderService;
     private final ActorIdResolver actorIdResolver;
     private final ImageWorklistService imageWorklistService;
+    private final StaffValidator staffValidator;
+    private final StaffDirectoryCache staffDirectoryCache;
 
     /**
      * ⚠ 기존 GET /receptions 와 목적이 다르다. 지우거나 합치지 않는다.
@@ -111,6 +115,14 @@ public class ImageOrderController {
         );
     }
 
+    /**
+     * ⚠ 직원 검증(staffValidator)을 여기(컨트롤러)에서 한다 — LabOrderController.createOrder 와
+     *   같은 이유다(그쪽 javadoc 참고). ImageOrderIntakeService(연계 수신)도 같은
+     *   ImageOrderService.createOrder 를 호출하는데, 그 경로는 직원/의사 사유로 거절하면 안 된다.
+     *
+     * ⚠ physicianNo 는 화면이 보낸 값을 그대로 믿지 않고, physicianId 가 디렉터리에서 찾아지면
+     *   그 직원의 실제 사번으로 서버가 덮어쓴다. 디렉터리에서 못 찾으면 화면이 보낸 값을 그대로 쓴다.
+     */
     @Operation(summary = "영상 오더 접수", description = "외부 시스템에서 발생한 영상 오더를 접수하고, 영상검사접수(IMAGE_RECEPTION)를 함께 생성한다. "
             + "(2026-07-16 기준: 외래/병동/응급이 직접 호출하지 않고 GR2 처방코어(/api/orders)가 "
             + "라우팅하여 호출하는 구조로 변경됨 — Q-ROUTE-OWNER/Q-EXAM 확정 전까지는 참고용)")
@@ -119,8 +131,16 @@ public class ImageOrderController {
             @LoginUser SessionUser loginUser,
             @Valid @RequestBody ImageOrderCreateRequestDto request) {
 
-        ImageOrderSummaryDto response = imageOrderService.createOrder(request.toBuilder()
-                        .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById")).build());
+        staffValidator.requireDoctorIfPresent(request.getPhysicianId(), "physicianId");
+        String matchedPhysicianNo = staffDirectoryCache.findEmpNo(request.getPhysicianId());
+
+        ImageOrderCreateRequestDto.ImageOrderCreateRequestDtoBuilder toCreate = request.toBuilder()
+                .receivedById(actorIdResolver.resolve(loginUser, request.getReceivedById(), "receivedById"));
+        if (matchedPhysicianNo != null) {
+            toCreate.physicianNo(matchedPhysicianNo);
+        }
+
+        ImageOrderSummaryDto response = imageOrderService.createOrder(toCreate.build());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.success(response, LabMessageCode.LAB005, "영상 접수가 생성되었습니다.")

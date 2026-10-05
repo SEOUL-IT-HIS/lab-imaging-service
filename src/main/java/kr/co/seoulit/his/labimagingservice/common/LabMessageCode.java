@@ -155,6 +155,34 @@ public final class LabMessageCode {
     public static final String LAB067 = "LAB067"; // 로그인이 필요합니다. (401, 세션 필수 설정일 때만)
     public static final String LAB068 = "LAB068"; // 결과 입력자와 확정자가 같습니다. (D3, 설정으로 켰을 때만)
 
+    // ---- 결과값 입력 유효성 (04번 지시서 Phase 3-A, 2026-10-05) ----
+    public static final String LAB105 = "LAB105"; // 결과값이 숫자 형식이 아닙니다.
+    public static final String LAB106 = "LAB106"; // 참고범위 형식이 올바르지 않습니다. (하한 > 상한 등)
+
+    // ---- 날짜·시각 입력 유효성 (04번 지시서 Phase 3-B) ----
+    public static final String LAB107 = "LAB107"; // 미래 시각/일자는 입력할 수 없습니다.
+    public static final String LAB108 = "LAB108"; // 시각 순서가 올바르지 않습니다. (인수일시 < 채취일시)
+
+    // ---- 파일 업로드 유효성 (04번 지시서 Phase 3-D) ----
+    public static final String LAB109 = "LAB109"; // 파일 크기가 허용 범위를 넘었습니다.
+
+    // ---- 수동 접수 입력 유효성 (04번 지시서 Phase 3-E) ----
+    public static final String LAB113 = "LAB113"; // 같은 항목이 중복 입력되었습니다.
+
+    // ---- 조회 기간 유효성 (04번 지시서 Phase 3-E) ----
+    public static final String LAB114 = "LAB114"; // 조회 기간이 올바르지 않습니다. (시작일 > 종료일)
+
+    // ---- 동의서 입력 유효성 (04번 지시서 Phase 3-C) ----
+    public static final String LAB115 = "LAB115"; // 식별자 형식이 올바르지 않습니다. (UUID 형식 아님)
+
+    // ---- 검사/영상 일정 날짜 유효성 (04번 지시서 Phase 3-B) ----
+    public static final String LAB116 = "LAB116"; // 과거 날짜로 일정을 등록할 수 없습니다.
+
+    // ---- 직원 검증 (04번 지시서 Phase 2, 2026-10-05) ----
+    public static final String LAB110 = "LAB110"; // 등록되어 있지 않거나 퇴사한 직원입니다.
+    public static final String LAB111 = "LAB111"; // 의사 역할의 직원만 지정할 수 있습니다.
+    public static final String LAB112 = "LAB112"; // 직원 정보를 확인할 수 없습니다. 잠시 후 다시 시도하세요.
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

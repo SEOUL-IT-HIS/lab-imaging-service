@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.laborder.service;
 
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
+import kr.co.seoulit.his.labimagingservice.common.cache.StaffDirectoryCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.DuplicateOrderException;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.interfacelog.entity.InterfaceOrderType;
@@ -11,6 +12,7 @@ import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderIntakeResultDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderItemRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderSummaryDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -34,7 +36,12 @@ import java.util.List;
  * ⚠ Kafka 로 바뀌어도 이 클래스는 그대로 재사용한다.
  *   지금은 Controller 가 부르고 나중에는 Consumer 가 부를 뿐, 변환·저장·로그는 동일하다.
  *   그래서 이 클래스에 HTTP 관련 타입(ResponseEntity 등)을 두지 않았다.
+ *
+ * ⚠ 직원 검증(StaffValidator)을 쓰지 않는다 — 코어가 보낸 doctorId 를 WARN 로그로만 남긴다.
+ *   (직원 검증, 2026-10-05, 04번 지시서 §0-2 — intake 는 직원/의사 사유로 절대 거절하면 안 된다)
+ *   StaffValidator.requireDoctor 를 여기서 쓰면 ENFORCE 모드에서 정상 처방까지 막힐 수 있다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LabOrderIntakeService {
@@ -84,6 +91,7 @@ public class LabOrderIntakeService {
 
     private final LabOrderService labOrderService;
     private final InterfaceReceiveLogService interfaceReceiveLogService;
+    private final StaffDirectoryCache staffDirectoryCache;
 
     /**
      * ⚠ import 가 tools.jackson.databind.ObjectMapper 다. com.fasterxml 이 아니다.
@@ -114,6 +122,8 @@ public class LabOrderIntakeService {
         // 1) 업무 처리 "전에" 원문을 남긴다. 처리 중 무슨 일이 나도 들어온 내용은 남아 있어야 한다.
         String logId = interfaceReceiveLogService.logReceived(
                 InterfaceOrderType.LAB, resolveSystemCode(request.getEncounterType()), toRawMessage(request));
+
+        warnIfDoctorIdNotRecognized(request.getDoctorId());
 
         try {
             LabOrderSummaryDto saved = labOrderService.createOrder(toCreateRequest(request));
@@ -225,5 +235,26 @@ public class LabOrderIntakeService {
     /** 응급여부 — "Y"만 Y 로 인정한다. null·빈 값·그 외 전부 N(2026-10-01 이전과 동일). */
     static String resolveUrgencyYn(String urgencyYn) {
         return URGENCY_YES.equalsIgnoreCase(urgencyYn) ? URGENCY_YES : URGENCY_NO;
+    }
+
+    /**
+     * doctorId가 직원 디렉터리에서 의사로 확인되지 않아도 접수를 막지 않는다. (§0-2)
+     *
+     * ⚠ StaffDirectoryCache 내부도 이미 실패를 삼키지만, 여기서도 한 번 더 감싼다 — intake 는
+     *   "절대 거절하지 않는다"가 다른 무엇보다 우선하는 경로라, 캐시 쪽 동작이 나중에 바뀌어도
+     *   이 메서드가 예외를 던지는 일만은 없도록 자체적으로 보장한다.
+     */
+    private void warnIfDoctorIdNotRecognized(String doctorId) {
+        if (doctorId == null || doctorId.isBlank()) {
+            return;
+        }
+        try {
+            if (staffDirectoryCache.isAvailable() && !staffDirectoryCache.isDoctor(doctorId)) {
+                log.warn("[STAFF_VALIDATION] 연계 수신 doctorId가 의사로 확인되지 않습니다. 접수는 그대로 진행합니다. (doctorId={})",
+                        doctorId);
+            }
+        } catch (RuntimeException e) {
+            log.warn("[STAFF_VALIDATION] 직원 디렉터리 조회 중 오류가 있었지만 접수는 그대로 진행합니다.", e);
+        }
     }
 }

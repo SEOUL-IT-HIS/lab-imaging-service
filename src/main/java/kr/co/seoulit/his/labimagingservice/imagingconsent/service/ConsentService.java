@@ -4,6 +4,8 @@ import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
+import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
+import kr.co.seoulit.his.labimagingservice.common.validation.InputFormatValidator;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentWithdrawRequestDto;
@@ -54,18 +56,25 @@ public class ConsentService {
     private final ImageOrderRepository imageOrderRepository;
     private final ConsentMapper consentMapper;
     private final CommonCodeCache commonCodeCache;
+    private final DateTimeValidator dateTimeValidator;
 
     /**
      * 동의 등록. (ZP2-84 / ZP2-83)
      *
      * 처리 순서
      *   1) 영상오더 존재 확인 — 없는 오더에 동의를 붙일 수는 없다.
-     *   2) 동의서유형코드 공통코드 검증.
-     *   3) 같은 유형의 철회 전 동의가 이미 있으면 차단 (중복 등록 방지).
-     *   4) 저장.
+     *   2) 환자 대조 — 요청의 patientId 가 그 오더의 환자와 다르면 거절한다. (Phase 3-C)
+     *   3) 동의서양식ID 형식 검증(UUID). (Phase 3-C, LAB115)
+     *   4) 동의일이 미래가 아닌지 검증. (Phase 3-B, LAB107)
+     *   5) 동의서유형코드 공통코드 검증.
+     *   6) 같은 유형의 철회 전 동의가 이미 있으면 차단 (중복 등록 방지).
+     *   7) 저장.
      *
      * ⚠ withdrawnYn 은 요청으로 받지 않고 서버가 'N' 으로 시작시킨다.
      *   등록 시점에 이미 철회된 동의라는 것은 성립하지 않는다.
+     *
+     * ⚠ 환자 대조는 검체·영상 업로드와 같은 방식·같은 코드(LAB051)를 재사용한다(지시서 §3-C) —
+     *   "환자가 일치하지 않는다"는 의미가 같고, 코드를 또 만들면 프론트가 두 코드를 다 처리해야 한다.
      */
     @Transactional
     public ConsentSummaryDto createConsent(ConsentCreateRequestDto request) {
@@ -75,6 +84,20 @@ public class ConsentService {
                         LabMessageCode.LAB030,
                         "영상 오더 정보를 찾을 수 없습니다. (imageOrderId=" + request.getImageOrderId() + ")"
                 ));
+
+        if (!request.getPatientId().equals(imageOrder.getPatientId())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB051,
+                    "환자 정보가 일치하지 않습니다. (imageOrderId=" + request.getImageOrderId() + ")");
+        }
+
+        if (!InputFormatValidator.isUuid(request.getDocumentTemplateId())) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB115,
+                    "식별자 형식이 올바르지 않습니다. (documentTemplateId=" + request.getDocumentTemplateId() + ")");
+        }
+
+        dateTimeValidator.rejectIfFuture(request.getConsentDt(), "consentDt");
 
         validateCode(CONSENT_TYPE_CD, request.getConsentTypeCode(), "동의서유형코드");
 

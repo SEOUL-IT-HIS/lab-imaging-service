@@ -86,6 +86,7 @@ class LabResultServiceTest {
     LabResultService service;
     LabReceptionEntity reception;
     LabOrderEntity order;
+    LabOrderItemEntity item;
 
     @BeforeEach
     void setUp() {
@@ -100,7 +101,7 @@ class LabResultServiceTest {
         order = mock(LabOrderEntity.class);
         when(order.getLabOrderId()).thenReturn(ORDER_ID);
         when(order.getPatientId()).thenReturn(PATIENT_ID);
-        LabOrderItemEntity item = mock(LabOrderItemEntity.class);
+        item = mock(LabOrderItemEntity.class);
         when(item.getLabOrder()).thenReturn(order);
         when(item.getLabItemCode()).thenReturn("01");
 
@@ -195,6 +196,37 @@ class LabResultServiceTest {
         service.createLabResult(request());
 
         verify(labResultRepository).save(any(LabResultEntity.class));
+    }
+
+    @Test
+    @DisplayName("취소된 검사항목이면 LAB121 — 결과를 등록할 수 없다 (05번 지시서 Phase 3)")
+    void createRejectsCancelledItem() {
+        readySpecimen();
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(item).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.createLabResult(request()))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(labResultRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("확정 — 취소된 검사항목이면 LAB121 (05번 지시서 Phase 3)")
+    void confirmRejectsCancelledItem() {
+        LabResultEntity recorded = LabResultEntity.builder()
+                .resultValue("4.2").abnormalYn("N").resultStatusCode("01")
+                .recordedAt(java.time.LocalDateTime.now()).recordedById("emp-1")
+                .build();
+        recorded.assignLabOrderItem(item);
+        when(labResultRepository.findById("result-1")).thenReturn(Optional.of(recorded));
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(item).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.confirmLabResult("result-1", "emp-2"))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(billingChargeService, never()).requestLabCharge(any());
     }
 
     // ==================================================================

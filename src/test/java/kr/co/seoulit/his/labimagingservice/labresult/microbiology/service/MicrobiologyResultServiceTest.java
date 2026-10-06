@@ -4,6 +4,7 @@ import kr.co.seoulit.his.labimagingservice.billing.service.BillingChargeService;
 import kr.co.seoulit.his.labimagingservice.labresult.service.LabResultTransmissionService;
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderItemRepository;
@@ -63,6 +64,7 @@ class MicrobiologyResultServiceTest {
     MicrobiologyResultService service;
     SpecimenEntity specimen;
     SpecimenAcceptanceEntity acceptance;
+    LabOrderItemEntity microItem;
 
     @BeforeEach
     void setUp() {
@@ -83,13 +85,13 @@ class MicrobiologyResultServiceTest {
         when(acceptance.getFitnessStatusCode()).thenReturn(FitnessStatus.FIT);
         when(specimenAcceptanceRepository.findBySpecimen_SpecimenId("sp-1")).thenReturn(Optional.of(acceptance));
 
-        givenItems("05", "01"); // 미생물 1 + 일반 1
+        microItem = givenItems("05", "01").get(0); // 미생물 1 + 일반 1
         when(microbiologyResultRepository.existsBySpecimen_LabReception_LabReceptionId("rec-1")).thenReturn(false);
         when(commonCodeCache.isValid(anyString(), anyString())).thenReturn(true);
         when(microbiologyResultRepository.save(any(MicrobiologyResultEntity.class))).thenAnswer(i -> i.getArgument(0));
     }
 
-    private void givenItems(String... codes) {
+    private List<LabOrderItemEntity> givenItems(String... codes) {
         List<LabOrderItemEntity> items = new java.util.ArrayList<>();
         for (String code : codes) {
             LabOrderItemEntity item = mock(LabOrderItemEntity.class);
@@ -97,6 +99,7 @@ class MicrobiologyResultServiceTest {
             items.add(item);
         }
         when(labOrderItemRepository.findByReceptionNo("LR-1")).thenReturn(items);
+        return items;
     }
 
     private MicrobiologyResultCreateRequestDto.MicrobiologyResultCreateRequestDtoBuilder positive() {
@@ -175,6 +178,32 @@ class MicrobiologyResultServiceTest {
     void alreadyRegisteredForReception() {
         when(microbiologyResultRepository.existsBySpecimen_LabReception_LabReceptionId("rec-1")).thenReturn(true);
         assertRejected(() -> service.createResult(positive().build()), LabMessageCode.LAB075);
+    }
+
+    @Test
+    @DisplayName("미생물 항목이 취소됐으면 LAB121 (05번 지시서 Phase 3)")
+    void rejectsCancelledItem() {
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(microItem).requireNotCancelled();
+
+        assertRejected(() -> service.createResult(positive().build()), LabMessageCode.LAB121);
+    }
+
+    @Test
+    @DisplayName("확정 — 미생물 항목이 취소됐으면 LAB121 (05번 지시서 Phase 3)")
+    void confirmRejectsCancelledItem() {
+        MicrobiologyResultEntity recorded = MicrobiologyResultEntity.builder()
+                .cultureStatusCode("02").resultStatusCode("01").recordedAt(LocalDateTime.now()).recordedById("emp-1")
+                .build();
+        recorded.assignSpecimen(specimen);
+        when(microbiologyResultRepository.findDetailById("mr-1")).thenReturn(Optional.of(recorded));
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(microItem).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.confirmResult("mr-1", "emp-2"))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(billingChargeService, never()).requestLabCharge(any());
     }
 
     @Test

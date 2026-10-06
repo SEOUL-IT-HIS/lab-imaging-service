@@ -77,6 +77,7 @@ public class SpecimenService {
         LabReceptionEntity reception = labReceptionRepository.findById(request.getLabReceptionId())
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB013, "검사 접수 정보를 찾을 수 없습니다."));
+        reception.requireNotCancelled();
 
         validateCode("SPECIMEN_CONTAINER_CD", request.getSpecimenContainerCode(), "검체용기코드");
         validateSpecimenCombination(reception, request.getSpecimenType(), request.getSpecimenContainerCode());

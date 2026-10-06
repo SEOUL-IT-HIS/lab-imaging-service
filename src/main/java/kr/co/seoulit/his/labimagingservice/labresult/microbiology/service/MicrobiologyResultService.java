@@ -109,6 +109,7 @@ public class MicrobiologyResultService {
 
         LabReceptionEntity reception = specimen.getLabReception();
         LabOrderItemEntity microItem = findSingleMicrobiologyItem(reception);
+        microItem.requireNotCancelled();
 
         if (microbiologyResultRepository.existsBySpecimen_LabReception_LabReceptionId(reception.getLabReceptionId())) {
             throw new LabImagingBusinessException(
@@ -177,6 +178,11 @@ public class MicrobiologyResultService {
 
         validateCode(RESULT_STATUS_CD, STATUS_CONFIRMED, "결과상태코드");
 
+        LabOrderItemEntity microItem = findMicrobiologyItemOrNull(result.getSpecimen().getLabReception());
+        if (microItem != null) {
+            microItem.requireNotCancelled();
+        }
+
         if (forbidSelfConfirm && confirmedById != null && confirmedById.equals(result.getRecordedById())) {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB068,
@@ -185,7 +191,6 @@ public class MicrobiologyResultService {
 
         result.confirm(STATUS_CONFIRMED, confirmedById, LocalDateTime.now());
 
-        LabOrderItemEntity microItem = findMicrobiologyItemOrNull(result.getSpecimen().getLabReception());
         // 청구 요청 (항목당 1회, 5차 Phase 5). 항목을 못 찾으면(등록 후 매핑 설정이 바뀐 경우) 청구하지 않고 남긴다.
         if (microItem != null) {
             billingChargeService.requestLabCharge(microItem);

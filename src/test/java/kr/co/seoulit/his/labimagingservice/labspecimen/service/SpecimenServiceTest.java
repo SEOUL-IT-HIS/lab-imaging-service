@@ -70,6 +70,7 @@ class SpecimenServiceTest {
     @InjectMocks SpecimenService specimenService;
 
     private LabOrderEntity order;
+    private LabReceptionEntity reception;
 
     @BeforeEach
     void setUp() {
@@ -78,7 +79,7 @@ class SpecimenServiceTest {
         List<LabOrderItemEntity> defaultItems = List.of(orderItem("01"));
         when(order.getOrderItems()).thenReturn(defaultItems);
 
-        LabReceptionEntity reception = mock(LabReceptionEntity.class);
+        reception = mock(LabReceptionEntity.class);
         when(reception.getLabOrder()).thenReturn(order);
         when(reception.getLabReceptionId()).thenReturn(RECEPTION_ID);
         when(reception.getReceptionNo()).thenReturn("LR-1");
@@ -126,6 +127,18 @@ class SpecimenServiceTest {
                 .collectedAt(LocalDateTime.now())
                 .collectedById("emp-1")
                 .build();
+    }
+
+    @Test
+    @DisplayName("취소된 접수면 LAB121 (05번 지시서 Phase 3)")
+    void rejectsCancelledReception() {
+        org.mockito.Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 접수입니다."))
+                .when(reception).requireNotCancelled();
+
+        assertThatThrownBy(() -> specimenService.createSpecimen(request(ORDER_PATIENT_ID)))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(specimenRepository, never()).save(any());
     }
 
     @Test

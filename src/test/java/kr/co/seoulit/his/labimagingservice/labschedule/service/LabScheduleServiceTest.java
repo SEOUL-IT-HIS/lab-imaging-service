@@ -51,9 +51,11 @@ class LabScheduleServiceTest {
 
     @InjectMocks LabScheduleService service;
 
+    private LabReceptionEntity reception;
+
     @BeforeEach
     void setUp() {
-        LabReceptionEntity reception = mock(LabReceptionEntity.class);
+        reception = mock(LabReceptionEntity.class);
         when(reception.getReceptionNo()).thenReturn("LR-1");
         when(labReceptionRepository.findById(RECEPTION_ID)).thenReturn(Optional.of(reception));
         when(labScheduleRepository.findByLabReception_LabReceptionIdAndLatestYn(RECEPTION_ID, "Y"))
@@ -95,6 +97,7 @@ class LabScheduleServiceTest {
     @DisplayName("재조정 — scheduledAt을 검증하고, 과거 날짜면 기존 일정의 latest_yn 전환도 일어나지 않는다")
     void rescheduleRejectsPastDateBeforeMarkingNotLatest() {
         LabScheduleEntity current = mock(LabScheduleEntity.class);
+        when(current.getLabReception()).thenReturn(reception);
         when(labScheduleRepository.findByLabReception_LabReceptionIdAndLatestYn(RECEPTION_ID, "Y"))
                 .thenReturn(Optional.of(current));
         Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB116, "과거 날짜로 일정을 등록할 수 없습니다."))
@@ -106,6 +109,41 @@ class LabScheduleServiceTest {
         assertThatThrownBy(() -> service.createLabReschedule(RECEPTION_ID, request))
                 .isInstanceOf(LabImagingBusinessException.class)
                 .extracting("messageCode").isEqualTo(LabMessageCode.LAB116);
+        verify(current, never()).markAsNotLatest();
+        verify(labScheduleRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("등록 — 취소된 접수면 LAB121 (05번 지시서 Phase 3)")
+    void createRejectsCancelledReception() {
+        Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 접수입니다."))
+                .when(reception).requireNotCancelled();
+
+        LabScheduleCreateRequestDto request = LabScheduleCreateRequestDto.builder()
+                .labReceptionId(RECEPTION_ID).scheduledAt(LocalDateTime.now().plusDays(1)).reservationYn("N").build();
+
+        assertThatThrownBy(() -> service.createLabSchedule(request))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(labScheduleRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("재조정 — 취소된 접수면 LAB121 (05번 지시서 Phase 3)")
+    void rescheduleRejectsCancelledReception() {
+        LabScheduleEntity current = mock(LabScheduleEntity.class);
+        when(current.getLabReception()).thenReturn(reception);
+        when(labScheduleRepository.findByLabReception_LabReceptionIdAndLatestYn(RECEPTION_ID, "Y"))
+                .thenReturn(Optional.of(current));
+        Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 접수입니다."))
+                .when(reception).requireNotCancelled();
+
+        LabScheduleRescheduleRequestDto request = LabScheduleRescheduleRequestDto.builder()
+                .scheduledAt(LocalDateTime.now().plusDays(1)).reservationYn("N").build();
+
+        assertThatThrownBy(() -> service.createLabReschedule(RECEPTION_ID, request))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
         verify(current, never()).markAsNotLatest();
         verify(labScheduleRepository, never()).saveAndFlush(any());
     }

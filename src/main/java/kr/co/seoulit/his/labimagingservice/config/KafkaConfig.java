@@ -63,6 +63,15 @@ public class KafkaConfig {
     private String labResultReportedTopic;
 
     /**
+     * 처방 취소 수신 토픽. (05번 지시서, 2026-10-06)
+     * ⚠ application.properties 를 건드리지 않기로 해서(개인 PC IP 포함) 다른 토픽과 달리
+     *   인라인 기본값을 둔다. application.properties 에 아래 키를 추가하면 그 값이 우선한다.
+     *     app.kafka.topic.lab-order-cancelled=opd.lab-order.cancelled.v1
+     */
+    @Value("${app.kafka.topic.lab-order-cancelled:opd.lab-order.cancelled.v1}")
+    private String cancelledTopic;
+
+    /**
      * 우리가 구독하는 토픽.
      *
      * ⚠ 남이 발행하는 토픽인데도 우리가 선언한다.
@@ -101,6 +110,12 @@ public class KafkaConfig {
     @Bean
     public NewTopic labResultReportedTopic() {
         return TopicBuilder.name(labResultReportedTopic).partitions(1).replicas(1).build();
+    }
+
+    /** 처방 취소 수신 토픽. (05번 지시서, 2026-10-06) 다른 토픽과 같은 이유로 여기서 미리 만든다. */
+    @Bean
+    public NewTopic labOrderCancelledTopic() {
+        return TopicBuilder.name(cancelledTopic).partitions(1).replicas(1).build();
     }
 
     /**

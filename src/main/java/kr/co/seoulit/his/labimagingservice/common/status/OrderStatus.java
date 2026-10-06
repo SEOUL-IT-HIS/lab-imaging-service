@@ -13,6 +13,9 @@ package kr.co.seoulit.his.labimagingservice.common.status;
  *
  * ⚠ DB 컬럼이 VARCHAR2(10)이라 name() 길이가 10자를 넘는 값은 추가할 수 없다.
  *   (ddl-auto=validate 라서 컬럼을 늘리려면 DB 변경이 선행돼야 한다)
+ *
+ * ⚠ CANCELLED(05번 지시서, 2026-10-06) — 오더의 모든 검사항목이 취소되어 종료된 상태.
+ *   "CANCELLED"는 9자라 그대로 들어간다.
  */
 public enum OrderStatus {
 
@@ -23,5 +26,8 @@ public enum OrderStatus {
     COMPLETED,
 
     /** 오류 */
-    ERROR
+    ERROR,
+
+    /** 취소 — 모든 항목이 처방의 취소로 종료된 오더. (05번 지시서) */
+    CANCELLED
 }

@@ -1,6 +1,7 @@
 package kr.co.seoulit.his.labimagingservice.laborder.entity;
 
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -112,5 +113,10 @@ public class LabOrderEntity extends BaseAuditEntity {
     public void addReception(LabReceptionEntity reception) {
         this.receptions.add(reception);
         reception.assignLabOrder(this);
+    }
+
+    /** 오더를 취소 상태로 전환한다. 오더의 모든 항목이 취소됐을 때만 호출한다. (05번 지시서 Phase 2-B) */
+    public void cancel() {
+        this.orderStatusCode = OrderStatus.CANCELLED.name();
     }
 }

@@ -170,6 +170,8 @@ public class LabResultService {
                         "검사항목 정보를 찾을 수 없습니다. (labOrderItemId=" + request.getLabOrderItemId() + ")"
                 ));
 
+        labOrderItem.requireNotCancelled();
+
         if (labResultRepository.existsByLabOrderItem_LabOrderItemId(request.getLabOrderItemId())) {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB036,
@@ -374,6 +376,8 @@ public class LabResultService {
                     "이미 확정된 결과입니다. (확정일시=" + labResult.getConfirmedAt() + ")"
             );
         }
+
+        labResult.getLabOrderItem().requireNotCancelled();
 
         validateCode(RESULT_STATUS_CD, STATUS_CONFIRMED, "결과상태코드");
 

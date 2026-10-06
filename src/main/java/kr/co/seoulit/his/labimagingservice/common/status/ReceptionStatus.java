@@ -18,6 +18,12 @@ package kr.co.seoulit.his.labimagingservice.common.status;
  * ⚠ 앞으로 결과 등록이 구현되면 "결과등록완료" 상태가 추가되는데, 그건 EXCLUDED 와 달리
  *   복구 대상이 아니다. 그래서 같은 값으로 뭉뚱그리지 않고 별도 상수로 추가해야 한다.
  *   (복구 API 가 EXCLUDED 만 되돌리도록 막고 있는 이유 — LabOrderService.restoreReception)
+ *
+ * ⚠ CANCELLED(05번 지시서, 2026-10-06) — 처방의가 처방을 비활성화(취소)해 끝난 상태.
+ *   EXCLUDED 와 다르다: EXCLUDED 는 "담당자가 처리하지 않기로 판단"한 것이라 되돌릴 수 있고,
+ *   CANCELLED 는 "처방 자체가 취소"된 것이라 복구 불가·워크리스트 처리 대상 아님이다.
+ *   (LabOrderCancelService.cancel, LabOrderService.restoreReception 의 CANCELLED 거절 참고)
+ *   DB 컬럼은 VARCHAR2(10) — "CANCELLED"는 9자라 그대로 들어간다.
  */
 public enum ReceptionStatus {
 
@@ -25,5 +31,8 @@ public enum ReceptionStatus {
     ACCEPTED,
 
     /** 제외 — 담당자가 처리하지 않기로 판단해 워크리스트에서 뺀 상태. 복구 가능. */
-    EXCLUDED
+    EXCLUDED,
+
+    /** 취소 — 처방의 취소로 종료. 복구 불가, 워크리스트 처리 대상 아님. (05번 지시서) */
+    CANCELLED
 }

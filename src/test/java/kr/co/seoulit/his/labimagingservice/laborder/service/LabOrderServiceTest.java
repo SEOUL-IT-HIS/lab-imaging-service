@@ -6,6 +6,7 @@ import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabOrderItemRequestDto;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.laborder.mapper.LabOrderMapper;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabOrderRepository;
 import kr.co.seoulit.his.labimagingservice.laborder.repository.LabReceptionRepository;
@@ -16,15 +17,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -94,5 +98,48 @@ class LabOrderServiceTest {
         // "중복 검사를 통과해 save() 호출까지 도달했다"는 뜻이다.
         assertThatThrownBy(() -> service.createOrder(request))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    // ==================================================================
+    // 접수 복구(restoreReception) — 취소된 접수는 거절 (05번 지시서 Phase 3)
+    // ==================================================================
+
+    @Test
+    @DisplayName("복구 — 취소된 접수면 LAB121 로 거절한다 (EXCLUDED 여부를 보기 전에 먼저 막는다)")
+    void restoreRejectsCancelledReception() {
+        LabReceptionEntity reception = mock(LabReceptionEntity.class);
+        when(labReceptionRepository.findByReceptionNo("LR-1")).thenReturn(Optional.of(reception));
+        Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 접수입니다."))
+                .when(reception).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.restoreReception("LR-1"))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(reception, never()).restore();
+    }
+
+    @Test
+    @DisplayName("복구 — EXCLUDED 가 아니면(취소도 아닌 경우) LAB026 로 거절한다")
+    void restoreRejectsNonExcludedReception() {
+        LabReceptionEntity reception = mock(LabReceptionEntity.class);
+        when(reception.getReceptionStatusCode()).thenReturn("ACCEPTED");
+        when(labReceptionRepository.findByReceptionNo("LR-1")).thenReturn(Optional.of(reception));
+
+        assertThatThrownBy(() -> service.restoreReception("LR-1"))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB026);
+        verify(reception, never()).restore();
+    }
+
+    @Test
+    @DisplayName("복구 — EXCLUDED 면 복구된다")
+    void restoreSucceedsForExcludedReception() {
+        LabReceptionEntity reception = mock(LabReceptionEntity.class);
+        when(reception.getReceptionStatusCode()).thenReturn("EXCLUDED");
+        when(labReceptionRepository.findByReceptionNo("LR-1")).thenReturn(Optional.of(reception));
+
+        service.restoreReception("LR-1");
+
+        verify(reception).restore();
     }
 }

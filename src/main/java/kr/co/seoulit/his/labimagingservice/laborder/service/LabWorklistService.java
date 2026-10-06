@@ -1,5 +1,6 @@
 package kr.co.seoulit.his.labimagingservice.laborder.service;
 
+import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
 import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.LabWorklistItemDto;
 import kr.co.seoulit.his.labimagingservice.laborder.dto.WorklistStep;
@@ -71,7 +72,7 @@ public class LabWorklistService {
     /**
      * 워크리스트 조회.
      *
-     * @param receptionStatusCode "ACCEPTED"=처리 대상, "EXCLUDED"=제외됨, null=전체
+     * @param receptionStatusCode "ACCEPTED"=처리 대상, "EXCLUDED"=제외됨, "CANCELLED"=취소됨, null=전체
      */
     @Transactional(readOnly = true)
     public List<LabWorklistItemDto> getWorklist(String receptionStatusCode) {
@@ -150,10 +151,15 @@ public class LabWorklistService {
                         (a, b) -> a));
     }
 
-    /** 접수상태 필터에 따라 조회 메서드를 고른다. 값이 없거나 모르는 값이면 전체. */
+    /**
+     * 접수상태 필터에 따라 조회 메서드를 고른다. 값이 없거나 모르는 값이면 전체.
+     * ⚠ CANCELLED 추가 (05번 지시서 Phase 4) — findWorklistByStatus 는 상태값을 그대로 받는
+     *   범용 조회라 새 상태를 추가해도 쿼리를 새로 만들 필요가 없다.
+     */
     private List<LabReceptionEntity> findReceptionsBy(String receptionStatusCode) {
         if (ReceptionStatus.ACCEPTED.name().equals(receptionStatusCode)
-                || ReceptionStatus.EXCLUDED.name().equals(receptionStatusCode)) {
+                || ReceptionStatus.EXCLUDED.name().equals(receptionStatusCode)
+                || ReceptionStatus.CANCELLED.name().equals(receptionStatusCode)) {
             return labReceptionRepository.findWorklistByStatus(receptionStatusCode);
         }
         return labReceptionRepository.findWorklistAll();
@@ -250,7 +256,16 @@ public class LabWorklistService {
          */
         boolean recollectionPending = SpecimenReadiness.isRecollectionPending(specimenCount, recollectionCount);
 
-        int labItemCount = orderItems.size();
+        /*
+         * 취소된 항목은 진행도 분모에서 뺀다. (05번 지시서 Phase 4)
+         * ⚠ 취소된 항목은 결과가 나올 일이 없다 — 그대로 두면 "2/5" 처럼 영원히 못 채우는
+         *   분모가 남아 담당자가 착각한다.
+         */
+        List<LabOrderItemEntity> activeOrderItems = orderItems.stream()
+                .filter(item -> !OrderItemStatus.CANCELLED.name().equals(item.getItemStatusCode()))
+                .toList();
+
+        int labItemCount = activeOrderItems.size();
 
         /*
          * 항목마다 "결과상태"를 모은다. 결과가 들어 있는 테이블이 항목 유형마다 다르다. (5차 D1)
@@ -259,7 +274,7 @@ public class LabWorklistService {
          *   PATHOLOGY    → PATHOLOGY_RESULT (항목 1:1)
          * 그래야 진행도 n/m 의 m(항목 수)과 n(결과 수)이 같은 단위로 맞는다.
          */
-        List<String> resultStatuses = orderItems.stream()
+        List<String> resultStatuses = activeOrderItems.stream()
                 .map(item -> switch (labResultTypeResolver.resolve(item.getLabItemCode())) {
                     case GENERAL -> {
                         LabResultEntity general = resultByItemId.get(item.getLabOrderItemId());

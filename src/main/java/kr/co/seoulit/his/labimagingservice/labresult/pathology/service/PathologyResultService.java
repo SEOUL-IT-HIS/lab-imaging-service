@@ -123,6 +123,7 @@ public class PathologyResultService {
                     LabMessageCode.LAB079,
                     "병리 결과로 등록할 수 없는 항목입니다. (검사항목코드=" + item.getLabItemCode() + ", 유형=" + type + ")");
         }
+        item.requireNotCancelled();
         if (pathologyResultRepository.existsByLabOrderItem_LabOrderItemId(item.getLabOrderItemId())) {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB085,
@@ -202,6 +203,8 @@ public class PathologyResultService {
         }
 
         validateCode(RESULT_STATUS_CD, STATUS_CONFIRMED, "결과상태코드");
+
+        result.getLabOrderItem().requireNotCancelled();
 
         if (forbidSelfConfirm && confirmedById != null && confirmedById.equals(result.getRecordedById())) {
             throw new LabImagingBusinessException(

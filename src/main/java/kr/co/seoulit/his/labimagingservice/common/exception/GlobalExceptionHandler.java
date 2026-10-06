@@ -45,6 +45,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 취소 이벤트가 가리키는 처방의 오더가 아직 접수되지 않음 (LAB117, 05번 지시서 2-D).
+     *
+     * ⚠ 이 핸들러는 REST 취소 API(LabOrderCancelController)에서만 실제로 호출된다.
+     *   Kafka 수신 경로(LabOrderCancelledConsumer)는 이 예외를 여기로 보내지 않고 직접
+     *   다시 던져 KafkaConfig.kafkaErrorHandler 의 재시도(1s·2s·4s)·DLT 로 보낸다 —
+     *   이 예외가 LabImagingBusinessException 을 상속하지 않는 이유가 바로 그것이다.
+     */
+    @ExceptionHandler(OrderNotYetReceivedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOrderNotYetReceived(OrderNotYetReceivedException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail(e.getMessageCode(), e.getMessage()));
+    }
+
+    /**
      * @Valid 검증 실패 (요청 본문 DTO).
      *
      * ⚠ 어떤 필드가 왜 걸렸는지를 응답에 담는다.

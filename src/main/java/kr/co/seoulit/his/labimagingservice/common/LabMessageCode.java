@@ -183,6 +183,13 @@ public final class LabMessageCode {
     public static final String LAB111 = "LAB111"; // 의사 역할의 직원만 지정할 수 있습니다.
     public static final String LAB112 = "LAB112"; // 직원 정보를 확인할 수 없습니다. 잠시 후 다시 시도하세요.
 
+    // ---- 처방 비활성화(검사오더 취소) 수신 (05번 지시서, 2026-10-06) ----
+    public static final String LAB117 = "LAB117"; // 해당 처방의 오더가 아직 접수되지 않았습니다.
+    public static final String LAB118 = "LAB118"; // 처방 취소 수신 — 전부 취소됨.
+    public static final String LAB119 = "LAB119"; // 처방 취소 수신 — 일부 거절됨.
+    public static final String LAB120 = "LAB120"; // 처방 취소 수신 — 전부 거절됨.
+    public static final String LAB121 = "LAB121"; // 취소된 접수입니다.
+
     // ---- 공통코드 검증 ----
     public static final String LAB017 = "LAB017"; // 유효하지 않은 코드값입니다.
 

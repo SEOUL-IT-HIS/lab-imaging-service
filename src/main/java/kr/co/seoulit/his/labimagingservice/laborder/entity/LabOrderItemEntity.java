@@ -1,6 +1,9 @@
 package kr.co.seoulit.his.labimagingservice.laborder.entity;
 
+import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -54,5 +57,22 @@ public class LabOrderItemEntity extends BaseAuditEntity {
 
     void assignLabOrder(LabOrderEntity labOrder) {
         this.labOrder = labOrder;
+    }
+
+    /** 항목을 취소 상태로 전환한다. (05번 지시서 Phase 2-B) */
+    public void cancel() {
+        this.itemStatusCode = OrderItemStatus.CANCELLED.name();
+    }
+
+    /**
+     * 취소된 항목이면 거절한다(LAB121). (05번 지시서 Phase 3)
+     * LabReceptionEntity.requireNotCancelled() 와 같은 이유로 엔티티에 둔다 — 결과 등록/확정
+     * 여러 지점에서 "이 항목이 취소됐는가"를 매번 같은 기준으로 묻는다.
+     */
+    public void requireNotCancelled() {
+        if (OrderItemStatus.CANCELLED.name().equals(this.itemStatusCode)) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB121, "취소된 검사항목입니다. (labItemCode=" + this.labItemCode + ")");
+        }
     }
 }

@@ -15,7 +15,10 @@ package kr.co.seoulit.his.labimagingservice.common.status;
  *   따로 옮길 필요가 아직 없었다. 검사 쪽에도 전이가 필요해지면 그때 값을 추가한다.
  *
  * ⚠ DB 컬럼이 VARCHAR2(10)이라 name() 길이가 10자를 넘는 값은 추가할 수 없다.
- *   (REGISTERED가 정확히 10자, ACQUIRED는 8자다)
+ *   (REGISTERED가 정확히 10자, ACQUIRED는 8자다. CANCELLED는 9자)
+ *
+ * ⚠ CANCELLED(05번 지시서, 2026-10-06) — 처방의가 취소를 요청해 끝난 검사항목.
+ *   검사(LAB_ORDER_ITEM)에서 처음 쓰는 전이다 — 지금까지 REGISTERED 하나뿐이었다.
  */
 public enum OrderItemStatus {
 
@@ -23,5 +26,8 @@ public enum OrderItemStatus {
     REGISTERED,
 
     /** 촬영완료 — 영상파일이 최소 1건 등록된 상태 (ZP2-106) */
-    ACQUIRED
+    ACQUIRED,
+
+    /** 취소 — 처방의 취소된 항목. (05번 지시서) */
+    CANCELLED
 }

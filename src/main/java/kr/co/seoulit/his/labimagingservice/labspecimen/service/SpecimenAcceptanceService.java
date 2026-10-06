@@ -58,6 +58,7 @@ public class SpecimenAcceptanceService {
                         LabMessageCode.LAB020,
                         "등록된 검체 정보를 찾을 수 없습니다. (specimenId=" + specimenId + ")"
                 ));
+        specimen.getLabReception().requireNotCancelled();
 
         if (specimenAcceptanceRepository.existsBySpecimen_SpecimenId(specimenId)) {
             throw new LabImagingBusinessException(

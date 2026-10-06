@@ -4,6 +4,7 @@ import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
+import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenAcceptanceRequestDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.dto.SpecimenAcceptanceSummaryDto;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.FitnessStatus;
@@ -55,11 +56,15 @@ class SpecimenAcceptanceServiceTest {
     @InjectMocks SpecimenAcceptanceService service;
 
     private SpecimenEntity specimen;
+    private LabReceptionEntity reception;
 
     @BeforeEach
     void setUp() {
+        reception = mock(LabReceptionEntity.class);
+
         specimen = mock(SpecimenEntity.class);
         when(specimen.getCollectedAt()).thenReturn(LocalDateTime.now().minusHours(1));
+        when(specimen.getLabReception()).thenReturn(reception);
         when(specimenRepository.findById(SPECIMEN_ID)).thenReturn(Optional.of(specimen));
         when(specimenAcceptanceRepository.existsBySpecimen_SpecimenId(SPECIMEN_ID)).thenReturn(false);
         when(commonCodeCache.isValid(anyString(), anyString())).thenReturn(true);
@@ -134,6 +139,18 @@ class SpecimenAcceptanceServiceTest {
         assertThatThrownBy(() -> service.acceptSpecimen(SPECIMEN_ID, fitRequest(LocalDateTime.now())))
                 .isInstanceOf(LabImagingBusinessException.class)
                 .extracting("messageCode").isEqualTo(LabMessageCode.LAB022);
+    }
+
+    @Test
+    @DisplayName("취소된 접수의 검체면 LAB121 (05번 지시서 Phase 3)")
+    void rejectsCancelledReception() {
+        Mockito.doThrow(new LabImagingBusinessException(LabMessageCode.LAB121, "취소된 접수입니다."))
+                .when(reception).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.acceptSpecimen(SPECIMEN_ID, fitRequest(LocalDateTime.now())))
+                .isInstanceOf(LabImagingBusinessException.class)
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(specimenAcceptanceRepository, never()).save(any());
     }
 
     @Test

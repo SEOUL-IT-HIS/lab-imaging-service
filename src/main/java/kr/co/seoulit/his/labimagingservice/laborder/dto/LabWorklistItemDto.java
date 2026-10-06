@@ -105,4 +105,15 @@ public class LabWorklistItemDto {
 
     @Schema(description = "제외 일시. 제외된 건에만 값이 있다", example = "2026-08-14T11:20:00")
     private LocalDateTime excludedAt;
+
+    // ---- 처방 취소 (05번 지시서 Phase 4) ----
+
+    @Schema(description = "처방 취소 요청을 받은 일시. 취소 요청이 없으면 null", example = "2026-10-06T10:00:00")
+    private LocalDateTime cancelRequestedAt;
+
+    @Schema(description = "처방의 취소 사유", example = "오처방")
+    private String cancelReason;
+
+    @Schema(description = "취소 처리 결과 (CANCELLED/PARTIAL/REFUSED). 취소 요청이 없으면 null", example = "REFUSED")
+    private String cancelOutcome;
 }

@@ -83,4 +83,15 @@ public class LabReceptionDetailDto {
 
     @Schema(description = "접수담당자ID", example = "STF00021")
     private String receivedById;
+
+    // ---- 처방 취소 (05번 지시서 Phase 4) ----
+
+    @Schema(description = "처방 취소 요청을 받은 일시. 취소 요청이 없으면 null", example = "2026-10-06T10:00:00")
+    private LocalDateTime cancelRequestedAt;
+
+    @Schema(description = "처방의 취소 사유", example = "오처방")
+    private String cancelReason;
+
+    @Schema(description = "취소 처리 결과 (CANCELLED/PARTIAL/REFUSED). 취소 요청이 없으면 null", example = "REFUSED")
+    private String cancelOutcome;
 }

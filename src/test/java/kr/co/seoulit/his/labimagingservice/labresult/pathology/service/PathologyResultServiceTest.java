@@ -116,6 +116,34 @@ class PathologyResultServiceTest {
     }
 
     @Test
+    @DisplayName("취소된 검사항목이면 LAB121 (05번 지시서 Phase 3)")
+    void rejectsCancelledItem() {
+        org.mockito.Mockito.doThrow(new kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException(
+                        LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(item).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.createResult(request(), null))
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+    }
+
+    @Test
+    @DisplayName("확정 — 취소된 검사항목이면 LAB121 (05번 지시서 Phase 3)")
+    void confirmRejectsCancelledItem() {
+        PathologyResultEntity recorded = PathologyResultEntity.builder()
+                .pathologyTypeCode("01").findings("x")
+                .resultStatusCode("01").recordedAt(LocalDateTime.now()).recordedById("emp-1").build();
+        recorded.assignLabOrderItem(item);
+        when(pathologyResultRepository.findDetailById("pr-1")).thenReturn(Optional.of(recorded));
+        org.mockito.Mockito.doThrow(new kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException(
+                        LabMessageCode.LAB121, "취소된 검사항목입니다."))
+                .when(item).requireNotCancelled();
+
+        assertThatThrownBy(() -> service.confirmResult("pr-1", "emp-2"))
+                .extracting("messageCode").isEqualTo(LabMessageCode.LAB121);
+        verify(billingChargeService, never()).requestLabCharge(any());
+    }
+
+    @Test
     @DisplayName("허용되지 않은 형식(tiff)은 LAB087 이고 업로드도 하지 않는다")
     void badContentType() {
         MockMultipartFile tiff = new MockMultipartFile("file", "a.tif", "image/tiff", new byte[]{1});

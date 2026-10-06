@@ -29,6 +29,7 @@ public class LabScheduleService {
         LabReceptionEntity reception = labReceptionRepository.findById(request.getLabReceptionId())
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB013, "검사접수 정보를 찾을 수 없습니다."));
+        reception.requireNotCancelled();
 
         /*
          * 이미 최종(latest_yn='Y') 일정이 있으면 신규 등록이 아니라 재등록 대상이다.
@@ -68,6 +69,7 @@ public class LabScheduleService {
                 .findByLabReception_LabReceptionIdAndLatestYn(labReceptionId, "Y")
                 .orElseThrow(() -> new LabImagingBusinessException(
                         LabMessageCode.LAB014, "재등록할 기존 검사 일정이 없습니다."));
+        current.getLabReception().requireNotCancelled();
 
         dateTimeValidator.rejectIfPastDate(request.getScheduledAt(), "scheduledAt");
 

@@ -121,6 +121,7 @@ public class LabOrderService {
     @Transactional
     public void restoreReception(String receptionNo) {
         LabReceptionEntity reception = findReceptionByNo(receptionNo);
+        reception.requireNotCancelled();
 
         if (!ReceptionStatus.EXCLUDED.name().equals(reception.getReceptionStatusCode())) {
             throw new LabImagingBusinessException(

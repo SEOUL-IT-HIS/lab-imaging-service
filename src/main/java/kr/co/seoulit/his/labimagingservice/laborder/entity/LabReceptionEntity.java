@@ -1,7 +1,10 @@
 package kr.co.seoulit.his.labimagingservice.laborder.entity;
 
 import jakarta.persistence.*;
+import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.entity.BaseAuditEntity;
+import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.common.status.CancelOutcome;
 import kr.co.seoulit.his.labimagingservice.common.status.ReceptionStatus;
 import kr.co.seoulit.his.labimagingservice.labschedule.entity.LabScheduleEntity;
 import kr.co.seoulit.his.labimagingservice.labspecimen.entity.SpecimenEntity;
@@ -83,6 +86,25 @@ public class LabReceptionEntity extends BaseAuditEntity {
     @Column(name = "excluded_at")
     private LocalDateTime excludedAt;
 
+    /**
+     * 처방 취소 요청을 받은 일시. (05번 지시서 Phase 1-B, 2026-10-06)
+     * ⚠ 거절된 건도 채운다 — "요청은 받았으나 막았다"를 검사실이 알 수 있어야 한다.
+     */
+    @Column(name = "cancel_requested_at")
+    private LocalDateTime cancelRequestedAt;
+
+    /** 처방의 취소 사유(OPD cancelReason). 200자 초과 시 잘라서 저장한다(서비스 책임). */
+    @Column(name = "cancel_reason", length = 200)
+    private String cancelReason;
+
+    /** 취소한 사용자ID(OPD cancelledBy). 표시·기록용 — 직원 검증은 하지 않는다. */
+    @Column(name = "cancelled_by_id", length = 36)
+    private String cancelledById;
+
+    /** 취소 처리 결과: CANCELLED(전체 취소)/PARTIAL(일부만 취소)/REFUSED(전부 거절). */
+    @Column(name = "cancel_outcome", length = 10)
+    private String cancelOutcome;
+
     @OneToMany(mappedBy = "labReception", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<LabScheduleEntity> schedules = new ArrayList<>();
 
@@ -121,12 +143,58 @@ public class LabReceptionEntity extends BaseAuditEntity {
         this.excludedAt = excludedAt;
     }
 
-    /** 워크리스트로 되돌린다. 제외 기록은 지운다. */
+    /**
+     * 워크리스트로 되돌린다. 제외 기록은 지운다.
+     * ⚠ CANCELLED 는 이 메서드로 되돌릴 수 없다 — 호출하는 쪽(LabOrderService.restoreReception)이
+     *   상태를 먼저 확인해 LAB121 로 거절한다(05번 지시서 Phase 3). 여기서는 EXCLUDED 를
+     *   전제로 하는 필드만 지운다.
+     */
     public void restore() {
         this.receptionStatusCode = ReceptionStatus.ACCEPTED.name();
         this.exclusionReason = null;
         this.excludedAt = null;
     }
+
+    /**
+     * 처방 취소 요청의 기록을 남긴다. 성공(outcome=CANCELLED)이든 거절(REFUSED/PARTIAL)이든
+     * 항상 호출한다. (05번 지시서 Phase 1-B)
+     *
+     * ⚠ 상태 전이는 이 메서드가 하지 않는다. 취소가 실제로 성공했을 때만 cancel() 을 별도로
+     *   부른다 — 거절돼도(REFUSED/PARTIAL) 접수 상태는 그대로 두고 이 기록만 남겨
+     *   검사실이 워크리스트에서 경고 배지로 볼 수 있게 한다(LabOrderCancelService 참고).
+     */
+    public void markCancelRequest(LocalDateTime requestedAt, String reason, String byId, CancelOutcome outcome) {
+        this.cancelRequestedAt = requestedAt;
+        this.cancelReason = reason;
+        this.cancelledById = byId;
+        this.cancelOutcome = outcome.name();
+    }
+
+    /** 접수를 취소 상태로 전환한다. 오더의 모든 항목이 취소됐을 때만 호출한다. */
+    public void cancel() {
+        this.receptionStatusCode = ReceptionStatus.CANCELLED.name();
+    }
+
+    /** 취소된 접수인지. */
+    public boolean isCancelled() {
+        return ReceptionStatus.CANCELLED.name().equals(this.receptionStatusCode);
+    }
+
+    /**
+     * 취소된 접수면 거절한다(LAB121). (05번 지시서 Phase 3)
+     *
+     * ⚠ 보통 "서비스가 예외를 던지고 엔티티는 상태만 들고 있는다"는 이 코드베이스의 관례에서
+     *   벗어난다. 일정·검체·인수·결과 등 접수를 읽는 지점이 7곳 넘게 흩어져 있어, 조건문을
+     *   그 수만큼 복붙하면 "취소 판단 기준"이 slowly 갈라진다. 지시서가 명시적으로 요구한
+     *   한 줄 공통 가드다 — 기준을 바꿀 일이 생기면 이 메서드 하나만 고치면 된다.
+     */
+    public void requireNotCancelled() {
+        if (isCancelled()) {
+            throw new LabImagingBusinessException(
+                    LabMessageCode.LAB121, "취소된 접수입니다. (receptionNo=" + this.receptionNo + ")");
+        }
+    }
+
     void assignLabOrder(LabOrderEntity labOrder) {
         this.labOrder = labOrder;
     }

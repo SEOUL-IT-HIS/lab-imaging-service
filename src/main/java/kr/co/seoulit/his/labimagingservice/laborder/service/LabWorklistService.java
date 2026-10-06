@@ -58,6 +58,13 @@ public class LabWorklistService {
     /** 결과상태 확정(02). LabResultService 의 STATUS_CONFIRMED 와 같은 값이다. */
     private static final String RESULT_STATUS_CONFIRMED = "02";
 
+    /**
+     * "Excluded" 탭에 보여줄 최근 기간(일). (2026-10-06, 현업 요청)
+     * ⚠ 제외된 접수가 기간 제한 없이 쌓이면 오래된 건까지 화면에 남아 운영에 방해가 된다는
+     *   피드백으로 추가됐다 — 삭제가 아니라 "Excluded" 탭 노출 범위만 제한한다(DB 행은 그대로 남는다).
+     */
+    private static final long EXCLUDED_RETENTION_DAYS = 7L;
+
     private final LabReceptionRepository labReceptionRepository;
     private final LabScheduleRepository labScheduleRepository;
     private final SpecimenRepository specimenRepository;
@@ -155,10 +162,16 @@ public class LabWorklistService {
      * 접수상태 필터에 따라 조회 메서드를 고른다. 값이 없거나 모르는 값이면 전체.
      * ⚠ CANCELLED 추가 (05번 지시서 Phase 4) — findWorklistByStatus 는 상태값을 그대로 받는
      *   범용 조회라 새 상태를 추가해도 쿼리를 새로 만들 필요가 없다.
+     * ⚠ EXCLUDED 는 따로 뺀다 — 최근 EXCLUDED_RETENTION_DAYS(7일) 이내 건만 보여준다
+     *   (2026-10-06 현업 요청). "All" 필터는 기간 제한 없이 전체를 그대로 보여준다 —
+     *   이 제한은 "Excluded" 탭 노출 범위에만 적용되는 화면 편의 기능이다.
      */
     private List<LabReceptionEntity> findReceptionsBy(String receptionStatusCode) {
+        if (ReceptionStatus.EXCLUDED.name().equals(receptionStatusCode)) {
+            return labReceptionRepository.findWorklistExcludedSince(
+                    LocalDateTime.now().minusDays(EXCLUDED_RETENTION_DAYS));
+        }
         if (ReceptionStatus.ACCEPTED.name().equals(receptionStatusCode)
-                || ReceptionStatus.EXCLUDED.name().equals(receptionStatusCode)
                 || ReceptionStatus.CANCELLED.name().equals(receptionStatusCode)) {
             return labReceptionRepository.findWorklistByStatus(receptionStatusCode);
         }

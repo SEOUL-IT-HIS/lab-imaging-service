@@ -16,6 +16,7 @@ import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.mapper.ImageOrderMapper;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.service.ConsentRequirementPolicy;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
 import kr.co.seoulit.his.labimagingservice.imagingschedule.entity.ImageScheduleEntity;
@@ -61,9 +62,13 @@ public class ImageOrderService {
     private final PatientServiceBusinessDelegate patientServiceBusinessDelegate;
     private final CommonCodeCache commonCodeCache;
     private final ImageScheduleRepository imageScheduleRepository;
+    /** 동의 필요 여부 — 워크리스트·업로드(LAB052)와 같은 정책 (06번 지시서 Phase 1-1) */
+    private final ConsentRequirementPolicy consentRequirementPolicy;
 
     /** 최종(현재 유효) 일정 판별값. IMAGE_SCHEDULE.latest_yn */
     private static final String LATEST_YN = "Y";
+    private static final String YES = "Y";
+    private static final String NO = "N";
 
 
     // ------------영상  접수 단건 조회---------------
@@ -88,7 +93,17 @@ public class ImageOrderService {
                 .min(LocalDateTime::compareTo)
                 .orElse(null);
 
-        return imageOrderMapper.toDetailResponse(reception.getImageOrder(), reception, scheduledAt);
+        /*
+         * 동의 필요 여부 — ConsentRequirementPolicy 한 곳에서만 판단한다. (06번 지시서 Phase 1-1)
+         *   워크리스트(ImageWorklistItemDto.consentRequiredYn)·업로드(LAB052)와 같은 정책이라,
+         *   여기서 다시 판단 기준을 만들지 않는다.
+         */
+        List<String> imageItemCodes = reception.getImageOrder().getOrderItems().stream()
+                .map(ImageOrderItemEntity::getImageItemCode)
+                .toList();
+        String consentRequiredYn = consentRequirementPolicy.isRequiredForItems(imageItemCodes) ? YES : NO;
+
+        return imageOrderMapper.toDetailResponse(reception.getImageOrder(), reception, scheduledAt, consentRequiredYn);
     }
 
     // ------------영상 촬영 접수 목록 조회---------------

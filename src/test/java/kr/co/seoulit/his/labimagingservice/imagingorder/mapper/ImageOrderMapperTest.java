@@ -25,9 +25,19 @@ class ImageOrderMapperTest {
         when(order.getPhysicianNo()).thenReturn(null);
         ImageReceptionEntity reception = mock(ImageReceptionEntity.class);
 
-        ImageReceptionDetailDto dto = mapper.toDetailResponse(order, reception, null);
+        ImageReceptionDetailDto dto = mapper.toDetailResponse(order, reception, null, "Y");
 
         assertThat(dto.getPhysicianId()).isEqualTo("doc-1");
         assertThat(dto.getPhysicianNo()).isNull();
+    }
+
+    @Test
+    @DisplayName("toDetailResponse: consentRequiredYn 파라미터가 응답에 그대로 실린다 (06번 지시서 Phase 1-1)")
+    void toDetailResponseCarriesConsentRequiredYn() {
+        ImageOrderEntity order = mock(ImageOrderEntity.class);
+        ImageReceptionEntity reception = mock(ImageReceptionEntity.class);
+
+        assertThat(mapper.toDetailResponse(order, reception, null, "Y").getConsentRequiredYn()).isEqualTo("Y");
+        assertThat(mapper.toDetailResponse(order, reception, null, "N").getConsentRequiredYn()).isEqualTo("N");
     }
 }

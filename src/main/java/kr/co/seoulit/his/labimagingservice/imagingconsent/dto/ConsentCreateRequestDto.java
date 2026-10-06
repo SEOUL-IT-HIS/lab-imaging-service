@@ -39,9 +39,14 @@ public class ConsentCreateRequestDto {
     @Schema(description = "동의서유형코드 (공통코드 CONSENT_TYPE_CD)", example = "조영제사용", requiredMode = Schema.RequiredMode.REQUIRED)
     private String consentTypeCode;
 
-    @NotBlank
+    /**
+     * ⚠ 더 이상 필수가 아니다. (2026-10-06 결정 — 동의서를 종이문서로 보관하기로 확정되면서
+     *   admin-service 문서양식(DOCUMENT_TEMPLATE)을 참조할 일이 없어졌다. 화면도 이 입력칸을
+     *   뺐다. 보내더라도 형식 검증은 하지 않는다 — 검증할 "전자양식" 개념 자체가 없어졌다.)
+     */
     @Size(max = 36)
-    @Schema(description = "동의서양식ID (admin-service DOCUMENT_TEMPLATE 논리 참조)", example = "d0a1b2c3-4d5e-6f70-8192-a3b4c5d6e7f8", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "(더 이상 쓰지 않음 — 동의서는 종이문서로 보관한다) 동의서양식ID",
+            example = "null")
     private String documentTemplateId;
 
     @NotBlank

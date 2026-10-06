@@ -5,7 +5,6 @@ import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
 import kr.co.seoulit.his.labimagingservice.common.status.OrderItemStatus;
 import kr.co.seoulit.his.labimagingservice.common.validation.DateTimeValidator;
-import kr.co.seoulit.his.labimagingservice.common.validation.InputFormatValidator;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentSummaryDto;
 import kr.co.seoulit.his.labimagingservice.imagingconsent.dto.ConsentWithdrawRequestDto;
@@ -64,11 +63,15 @@ public class ConsentService {
      * 처리 순서
      *   1) 영상오더 존재 확인 — 없는 오더에 동의를 붙일 수는 없다.
      *   2) 환자 대조 — 요청의 patientId 가 그 오더의 환자와 다르면 거절한다. (Phase 3-C)
-     *   3) 동의서양식ID 형식 검증(UUID). (Phase 3-C, LAB115)
-     *   4) 동의일이 미래가 아닌지 검증. (Phase 3-B, LAB107)
-     *   5) 동의서유형코드 공통코드 검증.
-     *   6) 같은 유형의 철회 전 동의가 이미 있으면 차단 (중복 등록 방지).
-     *   7) 저장.
+     *   3) 동의일이 미래가 아닌지 검증. (Phase 3-B, LAB107)
+     *   4) 동의서유형코드 공통코드 검증.
+     *   5) 같은 유형의 철회 전 동의가 이미 있으면 차단 (중복 등록 방지).
+     *   6) 저장.
+     *
+     * ⚠ documentTemplateId 형식 검증(LAB115)은 더 이상 하지 않는다. (2026-10-06)
+     *   동의서를 종이문서로 보관하기로 확정되면서 admin-service 문서양식을 참조할 일이
+     *   없어졌다 — 화면도 입력칸을 뺐다. 값이 와도 그냥 저장만 하고(대개 null), 형식을
+     *   따지지 않는다.
      *
      * ⚠ withdrawnYn 은 요청으로 받지 않고 서버가 'N' 으로 시작시킨다.
      *   등록 시점에 이미 철회된 동의라는 것은 성립하지 않는다.
@@ -89,12 +92,6 @@ public class ConsentService {
             throw new LabImagingBusinessException(
                     LabMessageCode.LAB051,
                     "환자 정보가 일치하지 않습니다. (imageOrderId=" + request.getImageOrderId() + ")");
-        }
-
-        if (!InputFormatValidator.isUuid(request.getDocumentTemplateId())) {
-            throw new LabImagingBusinessException(
-                    LabMessageCode.LAB115,
-                    "식별자 형식이 올바르지 않습니다. (documentTemplateId=" + request.getDocumentTemplateId() + ")");
         }
 
         dateTimeValidator.rejectIfFuture(request.getConsentDt(), "consentDt");

@@ -3,7 +3,9 @@ package kr.co.seoulit.his.labimagingservice.laborder.repository;
 import kr.co.seoulit.his.labimagingservice.laborder.entity.LabReceptionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +43,22 @@ public interface LabReceptionRepository extends JpaRepository<LabReceptionEntity
             order by r.createdAt asc
             """)
     List<LabReceptionEntity> findWorklistByStatus(String receptionStatusCode);
+
+    /**
+     * 제외된 접수 중 최근 N일 이내인 것만. (워크리스트 "Excluded" 탭, 2026-10-06 현업 요청)
+     * ⚠ 제외 목록을 기간 제한 없이 findWorklistByStatus 로 그대로 보여주면, 사유를 남기고
+     *   끝난 지 오래된 건까지 화면에 계속 쌓여 최근 처리해야 할 건을 찾기 어려워진다는
+     *   피드백이었다. 기준은 제외 처리 시각(excluded_at)이다 — LabWorklistService 의
+     *   EXCLUDED_RETENTION_DAYS 상수 하나만 바꾸면 기간이 바뀐다.
+     */
+    @Query("""
+            select r from LabReceptionEntity r
+            join fetch r.labOrder
+            where r.receptionStatusCode = 'EXCLUDED'
+              and r.excludedAt >= :cutoff
+            order by r.createdAt asc
+            """)
+    List<LabReceptionEntity> findWorklistExcludedSince(@Param("cutoff") LocalDateTime cutoff);
 
     /** 제외 여부와 무관한 전체 워크리스트. 정렬 기준은 findWorklistByStatus 와 같다. */
     @Query("""

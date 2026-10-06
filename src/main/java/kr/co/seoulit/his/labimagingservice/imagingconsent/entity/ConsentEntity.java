@@ -48,7 +48,13 @@ public class ConsentEntity extends BaseAuditEntity {
     @Column(name = "consent_type_code", length = 10, nullable = false)
     private String consentTypeCode;
 
-    @Column(name = "document_template_id", length = 36, nullable = false)
+    /**
+     * ⚠ nullable 이다. (2026-10-06 결정 — 동의서를 전자문서가 아니라 종이문서로 보관하기로
+     *   확정되면서, admin-service 문서양식(DOCUMENT_TEMPLATE)을 참조할 일이 없어졌다.
+     *   화면에서도 입력칸을 뺐다. 컬럼 자체는 남겨둔다 — 나중에 전자문서 양식 관리가
+     *   다시 필요해지면 그때 값을 채우면 된다.)
+     */
+    @Column(name = "document_template_id", length = 36)
     private String documentTemplateId;
 
     @Column(name = "consent_yn", columnDefinition = "CHAR(1)", nullable = false)

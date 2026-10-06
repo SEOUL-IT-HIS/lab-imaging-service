@@ -52,14 +52,12 @@ class ConsentServiceTest {
     @InjectMocks ConsentService consentService;
 
     private static final String PATIENT_ID = "patient-1";
-    /** 형식 검증(LAB115, Phase 3-C)을 통과해야 다른 테스트들이 그 뒤 분기까지 도달한다 — 반드시 UUID 형태. */
-    private static final String VALID_TEMPLATE_ID = "d0a1b2c3-4d5e-6f70-8192-a3b4c5d6e7f8";
 
+    /** documentTemplateId 는 더 이상 필수가 아니다(2026-10-06) — 기본 요청에도 넣지 않는다. */
     private final ConsentCreateRequestDto request = ConsentCreateRequestDto.builder()
             .imageOrderId("io-1")
             .patientId(PATIENT_ID)
             .consentTypeCode("01")
-            .documentTemplateId(VALID_TEMPLATE_ID)
             .consentYn("Y")
             .consentDt(LocalDate.now())
             .signedByName("Kim")
@@ -107,11 +105,14 @@ class ConsentServiceTest {
     }
 
     @Test
-    @DisplayName("documentTemplateId가 UUID 형식이 아니면 LAB115로 거절한다")
-    void invalidTemplateIdRejected() {
-        assertThatThrownBy(() -> consentService.createConsent(request.toBuilder().documentTemplateId("tpl-1").build()))
-                .isInstanceOf(LabImagingBusinessException.class)
-                .extracting("messageCode").isEqualTo(LabMessageCode.LAB115);
+    @DisplayName("documentTemplateId 없이도(값이 없거나 UUID가 아니어도) 저장된다 — 더 이상 검증 대상이 아니다 (2026-10-06)")
+    void templateIdNoLongerValidated() {
+        ArgumentCaptor<ConsentEntity> saved = ArgumentCaptor.forClass(ConsentEntity.class);
+
+        consentService.createConsent(request); // documentTemplateId 자체가 없는 기본 요청
+
+        verify(consentRepository).save(saved.capture());
+        assertThat(saved.getValue().getDocumentTemplateId()).isNull();
     }
 
     @Test

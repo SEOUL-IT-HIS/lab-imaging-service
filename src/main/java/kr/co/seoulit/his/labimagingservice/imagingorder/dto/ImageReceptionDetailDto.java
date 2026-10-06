@@ -72,4 +72,13 @@ public class ImageReceptionDetailDto {
 
     @Schema(description = "접수담당자ID", example = "STF00021")
     private String receivedById;
+
+    /**
+     * 동의가 필요한 촬영인지. (06번 지시서 Phase 1-1)
+     * ⚠ required-mode=ALL(기본)이면 항상 Y. LISTED 면 이 오더의 촬영항목 중 하나라도
+     *   required-item-codes 에 있으면 Y다 — ImageWorklistItemDto.consentRequiredYn,
+     *   ImageFileService(mayAcquire) 와 같은 정책(ConsentRequirementPolicy)을 쓴다.
+     */
+    @Schema(description = "동의가 필요한 촬영인지 (required-mode=ALL이면 항상 Y)", example = "Y")
+    private String consentRequiredYn;
 }

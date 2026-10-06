@@ -61,8 +61,9 @@ public interface ImageOrderMapper {
     @Mapping(target = "receivedAt", source = "order.receivedAt")
     @Mapping(target = "imageItemCodes", source = "order.orderItems")
     @Mapping(target = "scheduledAt", source = "scheduledAt")
+    @Mapping(target = "consentRequiredYn", source = "consentRequiredYn")
     ImageReceptionDetailDto toDetailResponse(ImageOrderEntity order, ImageReceptionEntity reception,
-                                             LocalDateTime scheduledAt);
+                                             LocalDateTime scheduledAt, String consentRequiredYn);
 
     /** List&lt;ImageOrderItemEntity&gt; → List&lt;String&gt; 변환에 MapStruct 가 요소별로 이 메서드를 쓴다. */
     default String toImageItemCode(ImageOrderItemEntity item) {

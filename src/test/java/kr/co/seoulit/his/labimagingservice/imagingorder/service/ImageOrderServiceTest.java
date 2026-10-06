@@ -4,8 +4,12 @@ import kr.co.seoulit.his.labimagingservice.businessdelegate.patient.PatientServi
 import kr.co.seoulit.his.labimagingservice.common.LabMessageCode;
 import kr.co.seoulit.his.labimagingservice.common.cache.CommonCodeCache;
 import kr.co.seoulit.his.labimagingservice.common.exception.LabImagingBusinessException;
+import kr.co.seoulit.his.labimagingservice.imagingconsent.service.ConsentRequirementPolicy;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderCreateRequestDto;
 import kr.co.seoulit.his.labimagingservice.imagingorder.dto.ImageOrderItemRequestDto;
+import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderEntity;
+import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageOrderItemEntity;
+import kr.co.seoulit.his.labimagingservice.imagingorder.entity.ImageReceptionEntity;
 import kr.co.seoulit.his.labimagingservice.imagingorder.mapper.ImageOrderMapper;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageOrderRepository;
 import kr.co.seoulit.his.labimagingservice.imagingorder.repository.ImageReceptionRepository;
@@ -14,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +26,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.util.List;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -43,6 +50,7 @@ class ImageOrderServiceTest {
     @Mock PatientServiceBusinessDelegate patientServiceBusinessDelegate;
     @Mock CommonCodeCache commonCodeCache;
     @Mock ImageScheduleRepository imageScheduleRepository;
+    @Mock ConsentRequirementPolicy consentRequirementPolicy;
 
     @InjectMocks ImageOrderService service;
 
@@ -88,5 +96,59 @@ class ImageOrderServiceTest {
 
         assertThatThrownBy(() -> service.createOrder(request))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    // ==================================================================
+    // 접수 상세 — consentRequiredYn (06번 지시서 Phase 1-1)
+    // ==================================================================
+
+    private ImageReceptionEntity receptionWithItems(String... itemCodes) {
+        ImageOrderEntity order = ImageOrderEntity.builder().build();
+        for (String code : itemCodes) {
+            order.addOrderItem(ImageOrderItemEntity.builder().imageItemCode(code).build());
+        }
+        ImageReceptionEntity reception = ImageReceptionEntity.builder().receptionNo("IR-1").build();
+        order.addReception(reception);
+        when(imageReceptionRepository.findByReceptionNo("IR-1")).thenReturn(Optional.of(reception));
+        when(imageScheduleRepository.findByImageReception_ImageReceptionIdAndLatestYn(any(), anyString()))
+                .thenReturn(List.of());
+        return reception;
+    }
+
+    @Test
+    @DisplayName("상세 조회 — ConsentRequirementPolicy 가 필요하다고 답하면 consentRequiredYn=Y 로 매핑을 호출한다")
+    void detailPassesConsentRequiredYes() {
+        receptionWithItems("04");
+        when(consentRequirementPolicy.isRequiredForItems(any())).thenReturn(true);
+
+        service.getReceptionByNo("IR-1");
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(imageOrderMapper).toDetailResponse(any(), any(), any(), captor.capture());
+        assertThat(captor.getValue()).isEqualTo("Y");
+    }
+
+    @Test
+    @DisplayName("상세 조회 — ConsentRequirementPolicy 가 불필요하다고 답하면 consentRequiredYn=N 으로 매핑을 호출한다")
+    void detailPassesConsentRequiredNo() {
+        receptionWithItems("04");
+        when(consentRequirementPolicy.isRequiredForItems(any())).thenReturn(false);
+
+        service.getReceptionByNo("IR-1");
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(imageOrderMapper).toDetailResponse(any(), any(), any(), captor.capture());
+        assertThat(captor.getValue()).isEqualTo("N");
+    }
+
+    @Test
+    @DisplayName("상세 조회 — 오더의 촬영항목코드 목록을 그대로 정책에 넘긴다")
+    void detailPassesItemCodesToPolicy() {
+        receptionWithItems("01", "04");
+        when(consentRequirementPolicy.isRequiredForItems(any())).thenReturn(false);
+
+        service.getReceptionByNo("IR-1");
+
+        verify(consentRequirementPolicy).isRequiredForItems(List.of("01", "04"));
     }
 }
